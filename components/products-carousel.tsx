@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import Image from "next/image"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,133 @@ import { ChevronLeft, ChevronRight, ShoppingCart, Star, Search, X } from "lucide
 import { Input } from "@/components/ui/input"
 import { useCart } from "@/contexts/cart-context"
 import { toast } from "sonner"
+
+function lerp(p1: number, p2: number, t: number) {
+  return p1 + (p2 - p1) * t
+}
+
+function useCarouselScroll(itemCount: number, itemsPerView: number) {
+  const trackRef = useRef<HTMLDivElement>(null)
+  const scroll = useRef({ current: 0, target: 0, last: 0 })
+  const isDown = useRef(false)
+  const startX = useRef(0)
+  const startScroll = useRef(0)
+  const rafId = useRef(0)
+  const [index, setIndex] = useState(0)
+
+  const maxItems = Math.max(0, itemCount - itemsPerView)
+
+  const snapToNearest = useCallback(() => {
+    const track = trackRef.current
+    if (!track) return
+    const itemWidth = track.scrollWidth / itemCount
+    const snapped = Math.round(scroll.current.target / itemWidth)
+    const clamped = Math.max(0, Math.min(snapped, maxItems))
+    scroll.current.target = clamped * itemWidth
+    setIndex(clamped)
+  }, [itemCount, maxItems])
+
+  const goTo = useCallback((i: number) => {
+    const track = trackRef.current
+    if (!track) return
+    const itemWidth = track.scrollWidth / itemCount
+    const clamped = Math.max(0, Math.min(i, maxItems))
+    scroll.current.target = clamped * itemWidth
+    setIndex(clamped)
+  }, [itemCount, maxItems])
+
+  useEffect(() => {
+    const track = trackRef.current
+    if (!track) return
+
+    const onWheel = (e: WheelEvent) => {
+      // Solo interceptar scroll horizontal o cuando el usuario esté arrastrando
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+        e.preventDefault()
+        const delta = e.deltaX
+        const itemWidth = track.scrollWidth / itemCount
+        const maxScroll = maxItems * itemWidth
+        scroll.current.target = Math.max(0, Math.min(scroll.current.target + delta, maxScroll))
+        snapToNearest()
+      }
+    }
+
+    const onMouseDown = (e: MouseEvent) => {
+      e.preventDefault()
+      isDown.current = true
+      startX.current = e.clientX
+      startScroll.current = scroll.current.target
+      track.style.cursor = 'grabbing'
+    }
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDown.current) return
+      const dist = (startX.current - e.clientX) * 1.5
+      const itemWidth = track.scrollWidth / itemCount
+      const maxScroll = maxItems * itemWidth
+      scroll.current.target = Math.max(0, Math.min(startScroll.current + dist, maxScroll))
+    }
+
+    const onMouseUp = () => {
+      if (!isDown.current) return
+      isDown.current = false
+      track.style.cursor = 'grab'
+      snapToNearest()
+    }
+
+    const onTouchStart = (e: TouchEvent) => {
+      isDown.current = true
+      startX.current = e.touches[0].clientX
+      startScroll.current = scroll.current.target
+    }
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!isDown.current) return
+      const dist = (startX.current - e.touches[0].clientX) * 1.5
+      const itemWidth = track.scrollWidth / itemCount
+      const maxScroll = maxItems * itemWidth
+      scroll.current.target = Math.max(0, Math.min(startScroll.current + dist, maxScroll))
+    }
+
+    const onTouchEnd = () => {
+      isDown.current = false
+      snapToNearest()
+    }
+
+    track.addEventListener('wheel', onWheel, { passive: false })
+    track.addEventListener('mousedown', onMouseDown)
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    track.addEventListener('touchstart', onTouchStart, { passive: true })
+    track.addEventListener('touchmove', onTouchMove, { passive: true })
+    track.addEventListener('touchend', onTouchEnd)
+
+    return () => {
+      track.removeEventListener('wheel', onWheel)
+      track.removeEventListener('mousedown', onMouseDown)
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+      track.removeEventListener('touchstart', onTouchStart)
+      track.removeEventListener('touchmove', onTouchMove)
+      track.removeEventListener('touchend', onTouchEnd)
+    }
+  }, [itemCount, maxItems, snapToNearest])
+
+  useEffect(() => {
+    const animate = () => {
+      scroll.current.current = lerp(scroll.current.current, scroll.current.target, 0.05)
+      if (trackRef.current) {
+        trackRef.current.style.transform = `translateX(-${scroll.current.current}px)`
+      }
+      scroll.current.last = scroll.current.current
+      rafId.current = requestAnimationFrame(animate)
+    }
+    rafId.current = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(rafId.current)
+  }, [])
+
+  return { trackRef, index, goTo, maxItems }
+}
 
 export const staticProducts = [
   {
@@ -103,7 +230,6 @@ export const staticProducts = [
 
 export function ProductsCarousel() {
   const { addItem } = useCart()
-  const [currentIndex, setCurrentIndex] = useState(0)
   const [itemsPerView, setItemsPerView] = useState(4)
   const [loadedProducts, setLoadedProducts] = useState(staticProducts)
   const [search, setSearch] = useState("")
@@ -115,15 +241,17 @@ export function ProductsCarousel() {
       )
     : loadedProducts
 
+  const { trackRef, index: currentIndex, goTo, maxItems: maxIndex } = useCarouselScroll(
+    filteredProducts.length,
+    itemsPerView
+  )
+
   useEffect(() => {
     const loadCustomProducts = () => {
       try {
         const custom = JSON.parse(localStorage.getItem("truckparts_custom_products") || "[]")
         const hidden = JSON.parse(localStorage.getItem("truckparts_hidden_static") || "[]")
-        
-        // Filter out static products that were hidden (deleted or replaced)
         const filteredStatic = staticProducts.filter(p => !hidden.includes(p.id))
-        
         setLoadedProducts([...custom, ...filteredStatic])
       } catch (e) {
         setLoadedProducts(staticProducts)
@@ -132,14 +260,12 @@ export function ProductsCarousel() {
 
     loadCustomProducts()
 
-    // Sincronización automática de imágenes para productos estáticos en el almacenamiento local
     const syncImages = () => {
       try {
         const custom = JSON.parse(localStorage.getItem("truckparts_custom_products") || "[]")
         let changed = false
         const updated = custom.map((p: any) => {
           const staticMatch = staticProducts.find(sp => sp.id === p.id)
-          // Si el ID coincide y la imagen no es una URL externa (empezando con http), la forzamos
           if (staticMatch && (p.image === "" || !p.image.startsWith('http'))) {
              p.image = staticMatch.image
              changed = true
@@ -176,23 +302,8 @@ export function ProductsCarousel() {
     return () => window.removeEventListener("resize", handleResize)
   }, [])
 
-  const maxIndex = Math.max(0, filteredProducts.length - itemsPerView)
-
-  const next = useCallback(() => {
-    setCurrentIndex((prev) => Math.min(prev + 1, maxIndex))
-  }, [maxIndex])
-
-  const prev = useCallback(() => {
-    setCurrentIndex((prev) => Math.max(prev - 1, 0))
-  }, [])
-
-  // Auto-advance carousel
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev >= maxIndex ? 0 : prev + 1))
-    }, 5000)
-    return () => clearInterval(timer)
-  }, [maxIndex])
+  const next = useCallback(() => goTo(currentIndex + 1), [currentIndex, goTo])
+  const prev = useCallback(() => goTo(currentIndex - 1), [currentIndex, goTo])
 
   return (
     <section id="productos" className="py-16 bg-background">
@@ -213,7 +324,7 @@ export function ProductsCarousel() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               <Input
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setCurrentIndex(0) }}
+                onChange={(e) => { setSearch(e.target.value); goTo(0) }}
                 placeholder="Buscar producto o categoría..."
                 className="pl-9 pr-8 h-9 text-sm bg-secondary/20 border-border"
               />
@@ -302,14 +413,14 @@ export function ProductsCarousel() {
           )
         ) : (
           <>
-            <div className="overflow-hidden">
-              <div className="flex transition-transform duration-500 ease-out" style={{ transform: `translateX(-${currentIndex * (100 / itemsPerView)}%)` }}>
+            <div className="overflow-hidden cursor-grab active:cursor-grabbing select-none">
+              <div ref={trackRef} className="flex will-change-transform">
                 {filteredProducts.map((product) => (
                   <div key={product.id} className="flex-shrink-0 px-2" style={{ width: `${100 / itemsPerView}%` }}>
                     <Card className="group bg-secondary/20 border-secondary/30 card-glow h-full backdrop-blur-sm transition-all hover:bg-secondary/30">
                       <CardContent className="p-4">
                         <div className="relative aspect-square bg-secondary/40 rounded-lg mb-4 overflow-hidden">
-                          <Image src={product.image} alt={product.name} fill className="object-cover group-hover:scale-110 transition-transform duration-300" sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw" unoptimized={product.image.endsWith(".svg")} />
+                          <Image src={product.image} alt={product.name} fill draggable={false} className="object-cover group-hover:scale-110 transition-transform duration-300 select-none" sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw" unoptimized={product.image.endsWith(".svg")} />
                           {product.badge && (
                             <Badge className="absolute top-2 left-2 bg-accent text-accent-foreground text-[10px] font-bold uppercase tracking-wider z-10 shadow-lg glow-accent-btn">{product.badge}</Badge>
                           )}
@@ -361,7 +472,7 @@ export function ProductsCarousel() {
             </div>
             <div className="flex justify-center gap-2 mt-6">
               {Array.from({ length: maxIndex + 1 }).map((_, index) => (
-                <button key={index} onClick={() => setCurrentIndex(index)}
+                <button key={index} onClick={() => goTo(index)}
                   className={`h-2 rounded-full transition-all ${index === currentIndex ? "w-8 bg-primary" : "w-2 bg-muted-foreground/30 hover:bg-muted-foreground/50"}`}
                   aria-label={`Ir a slide ${index + 1}`}
                 />

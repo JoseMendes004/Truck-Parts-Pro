@@ -8,11 +8,25 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Package, Image as ImageIcon, Save, Check, ShoppingCart, Star, Plus, X, Trash2, Pencil } from "lucide-react"
+import { Package, Image as ImageIcon, Save, Check, ShoppingCart, Star, Plus, X, Trash2, Pencil, Search } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 import { staticProducts } from "@/components/products-carousel"
 
 const DEFAULT_QUANTITIES = [1, 2, 4, 5, 10, 12, 15, 20, 24, 50]
-const DEFAULT_SELECTED = [1, 5, 10, 15]
+const DEFAULT_SELECTED: number[] = []
+
+function loadQuantitiesFromStorage() {
+  try {
+    const q = localStorage.getItem("truckparts_quantities")
+    const s = localStorage.getItem("truckparts_selected_quantities")
+    return {
+      quantities: q ? JSON.parse(q) : DEFAULT_QUANTITIES,
+      selected: s ? JSON.parse(s) : DEFAULT_SELECTED,
+    }
+  } catch {
+    return { quantities: DEFAULT_QUANTITIES, selected: DEFAULT_SELECTED }
+  }
+}
 
 export function AdminInventory() {
   const [productData, setProductData] = useState({
@@ -27,8 +41,8 @@ export function AdminInventory() {
     rating: "5"
   })
 
-  const [quantities, setQuantities] = useState<number[]>(DEFAULT_QUANTITIES)
-  const [selectedQuantities, setSelectedQuantities] = useState<number[]>(DEFAULT_SELECTED)
+  const [quantities, setQuantities] = useState<number[]>(() => loadQuantitiesFromStorage().quantities)
+  const [selectedQuantities, setSelectedQuantities] = useState<number[]>(() => loadQuantitiesFromStorage().selected)
   const [customQtyInput, setCustomQtyInput] = useState("")
   const [savedProducts, setSavedProducts] = useState<any[]>([])
   const [hiddenStatic, setHiddenStatic] = useState<number[]>([])
@@ -107,14 +121,16 @@ export function AdminInventory() {
   
   const handleCancelEdit = () => {
     setProductData({ name: "", brand: "", price: "", size: "", vehicle: "", category: "", status: "", image: "", rating: "5" })
-    setQuantities(DEFAULT_QUANTITIES)
-    setSelectedQuantities(DEFAULT_SELECTED)
+    const saved = loadQuantitiesFromStorage()
+    setQuantities(saved.quantities)
+    setSelectedQuantities(saved.selected)
     if (fileInputRef.current) fileInputRef.current.value = ""
     setEditingId(null)
     setSaved(false)
   }
   
   const [saved, setSaved] = useState(false)
+  const [productSearch, setProductSearch] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleInputChange = (field: string, value: string) => {
@@ -135,26 +151,42 @@ export function AdminInventory() {
   }
 
   const toggleQuantity = (qty: number) => {
-    setSelectedQuantities(prev =>
-      prev.includes(qty) ? prev.filter(q => q !== qty) : [...prev, qty].sort((a, b) => a - b)
-    )
+    setSelectedQuantities(prev => {
+      const updated = prev.includes(qty) ? prev.filter(q => q !== qty) : [...prev, qty].sort((a, b) => a - b)
+      localStorage.setItem("truckparts_selected_quantities", JSON.stringify(updated))
+      return updated
+    })
   }
 
   const addCustomQuantity = () => {
     const qty = parseInt(customQtyInput)
     if (!qty || qty <= 0) return
-    if (!quantities.includes(qty)) {
-      setQuantities(prev => [...prev, qty].sort((a, b) => a - b))
-    }
-    if (!selectedQuantities.includes(qty)) {
-      setSelectedQuantities(prev => [...prev, qty].sort((a, b) => a - b))
-    }
+    setQuantities(prev => {
+      if (prev.includes(qty)) return prev
+      const updated = [...prev, qty].sort((a, b) => a - b)
+      localStorage.setItem("truckparts_quantities", JSON.stringify(updated))
+      return updated
+    })
+    setSelectedQuantities(prev => {
+      if (prev.includes(qty)) return prev
+      const updated = [...prev, qty].sort((a, b) => a - b)
+      localStorage.setItem("truckparts_selected_quantities", JSON.stringify(updated))
+      return updated
+    })
     setCustomQtyInput("")
   }
 
   const removeQuantity = (qty: number) => {
-    setQuantities(prev => prev.filter(q => q !== qty))
-    setSelectedQuantities(prev => prev.filter(q => q !== qty))
+    setQuantities(prev => {
+      const updated = prev.filter(q => q !== qty)
+      localStorage.setItem("truckparts_quantities", JSON.stringify(updated))
+      return updated
+    })
+    setSelectedQuantities(prev => {
+      const updated = prev.filter(q => q !== qty)
+      localStorage.setItem("truckparts_selected_quantities", JSON.stringify(updated))
+      return updated
+    })
   }
 
   const handleSaveProduct = () => {
@@ -347,16 +379,14 @@ export function AdminInventory() {
                   key={qty}
                   className={`group flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-lg border transition-all select-none
                     ${selectedQuantities.includes(qty)
-                      ? "bg-primary/5 border-primary/50 text-foreground"
+                      ? "bg-accent/10 border-accent/50 text-foreground"
                       : "bg-input/50 border-border text-muted-foreground opacity-60 hover:opacity-100"
                     }`}
                 >
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      className="w-4 h-4 rounded border-border accent-primary cursor-pointer"
+                  <label className="flex items-center gap-2 cursor-pointer" onClick={() => toggleQuantity(qty)}>
+                    <Checkbox
                       checked={selectedQuantities.includes(qty)}
-                      onChange={() => toggleQuantity(qty)}
+                      onCheckedChange={() => toggleQuantity(qty)}
                     />
                     <span className="text-sm font-medium">{qty} {qty === 1 ? "und" : "unds"}</span>
                   </label>
@@ -528,17 +558,52 @@ export function AdminInventory() {
     {/* Productos Registrados */}
     <Card className="bg-card border-border mt-6">
         <CardHeader>
-          <CardTitle className="text-lg text-foreground flex items-center gap-2">
-            <Package className="h-5 w-5 text-primary" />
-            Productos en el Carrusel
-          </CardTitle>
-          <CardDescription>
-            {allProducts.length} producto{allProducts.length !== 1 ? "s" : ""} en total. Elimina los personalizados que ya no quieras mostrar.
-          </CardDescription>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <CardTitle className="text-lg text-foreground flex items-center gap-2">
+                <Package className="h-5 w-5 text-primary" />
+                Productos en el Carrusel
+              </CardTitle>
+              <CardDescription className="mt-1">
+                {allProducts.length} producto{allProducts.length !== 1 ? "s" : ""} en total. Elimina los personalizados que ya no quieras mostrar.
+              </CardDescription>
+            </div>
+            <div className="relative w-full sm:w-56">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                value={productSearch}
+                onChange={e => setProductSearch(e.target.value)}
+                placeholder="Buscar producto..."
+                className="pl-9 pr-8 h-9 text-sm bg-input border-border"
+              />
+              {productSearch && (
+                <button
+                  onClick={() => setProductSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
+          {(() => {
+            const filtered = productSearch.trim()
+              ? allProducts.filter(p =>
+                  p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+                  p.category.toLowerCase().includes(productSearch.toLowerCase())
+                )
+              : allProducts
+            if (filtered.length === 0) return (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
+                <Search className="h-8 w-8 opacity-20" />
+                <p className="text-sm">No se encontraron productos para &quot;{productSearch}&quot;</p>
+              </div>
+            )
+            return (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-            {allProducts.map(product => (
+            {filtered.map(product => (
               <div key={product.id} className="relative group">
                 <Card className="bg-secondary/20 border-secondary/30 h-full">
                   <CardContent className="p-3">
@@ -598,6 +663,8 @@ export function AdminInventory() {
               </div>
             ))}
           </div>
+            )
+          })()}
         </CardContent>
       </Card>
     </div>

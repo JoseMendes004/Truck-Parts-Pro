@@ -179,7 +179,7 @@ export default function AdminPage() {
                     <Settings className="h-5 w-5 transition-transform duration-300 hover:rotate-90 text-accent" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 bg-background/80 backdrop-blur-2xl border border-border shadow-2xl p-2 rounded-2xl">
+                <DropdownMenuContent align="end" className="w-56 liquid-glass p-2 rounded-2xl border-0">
                   <DropdownMenuLabel className="flex items-center gap-2 px-2 py-1.5 text-sm font-semibold text-muted-foreground">
                     <Palette className="h-4 w-4" />
                     Apariencia

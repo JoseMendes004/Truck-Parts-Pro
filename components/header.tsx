@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { useTheme } from "@/contexts/theme-context"
 import { useCart } from "@/contexts/cart-context"
 import { CheckoutDialog } from "@/components/checkout-dialog"
+import { PillNav } from "@/components/pill-nav"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -47,6 +48,13 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [checkoutOpen, setCheckoutOpen] = useState(false)
 
+  const navItems = [
+    { label: 'Inicio', href: '/dashboard' },
+    { label: 'Productos', href: '/dashboard#productos' },
+    { label: 'Servicios', href: '/dashboard#servicios' },
+    { label: 'Contacto', href: '/dashboard#contacto' },
+  ]
+
   const themeOptions = [
     { value: "light" as const, label: "Modo Claro", icon: Sun },
     { value: "dark" as const, label: "Modo Oscuro", icon: Moon },
@@ -64,32 +72,12 @@ export function Header() {
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-6">
-            <Link
-              href="/dashboard"
-              className="text-sm font-medium text-foreground hover:opacity-80 transition-colors"
-            >
-              Inicio
-            </Link>
-            <Link
-              href="/dashboard#productos"
-              className="text-sm font-medium text-foreground hover:opacity-80 transition-colors"
-            >
-              Productos
-            </Link>
-            <Link
-              href="/dashboard#servicios"
-              className="text-sm font-medium text-foreground hover:opacity-80 transition-colors"
-            >
-              Servicios
-            </Link>
-            <Link
-              href="/dashboard#contacto"
-              className="text-sm font-medium text-foreground hover:opacity-80 transition-colors"
-            >
-              Contacto
-            </Link>
-          </nav>
+          <PillNav
+            items={navItems}
+            baseColor="color-mix(in srgb, var(--foreground) 10%, transparent)"
+            pillColor="var(--foreground)"
+            hoveredPillTextColor="var(--background)"
+          />
 
           {/* Right Side Actions */}
           <div className="flex items-center gap-2">
@@ -186,7 +174,7 @@ export function Header() {
                   <span className="sr-only">Ajustes</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 bg-background/80 backdrop-blur-2xl border border-border shadow-2xl p-2 rounded-2xl">
+              <DropdownMenuContent align="end" className="w-56 liquid-glass p-2 rounded-2xl border-0">
                 {/* Theme section */}
                 <DropdownMenuLabel className="flex items-center gap-2 px-2 py-1.5 text-sm font-semibold text-muted-foreground">
                   <Moon className="h-4 w-4" />
@@ -197,18 +185,20 @@ export function Header() {
                   <DropdownMenuItem
                     key={option.value}
                     onClick={() => setTheme(option.value)}
-                    className={`flex items-center gap-2 cursor-pointer rounded-xl transition-all duration-300 px-3 py-2.5 mb-1.5 last:mb-0 ${
-                      theme !== option.value ? "hover:bg-muted text-foreground" : ""
+                    className={`flex items-center gap-2 cursor-pointer rounded-xl transition-all duration-200 px-3 py-2.5 mb-1 last:mb-0 ${
+                      theme !== option.value ? "text-foreground" : ""
                     }`}
                     style={
-                      theme === option.value 
-                        ? { backgroundColor: "var(--accent)", color: "var(--accent-foreground)" } 
-                        : undefined
+                      theme === option.value
+                        ? { backgroundColor: "color-mix(in srgb, var(--accent) 85%, transparent)", color: "var(--accent-foreground)" }
+                        : { backgroundColor: "transparent" }
                     }
+                    onMouseEnter={e => { if (theme !== option.value) (e.currentTarget as HTMLElement).style.backgroundColor = "color-mix(in srgb, white 10%, transparent)" }}
+                    onMouseLeave={e => { if (theme !== option.value) (e.currentTarget as HTMLElement).style.backgroundColor = "transparent" }}
                   >
-                    <option.icon 
-                      className="h-4 w-4" 
-                      style={{ color: theme === option.value ? "var(--accent-foreground)" : "var(--muted-foreground)" }} 
+                    <option.icon
+                      className="h-4 w-4"
+                      style={{ color: theme === option.value ? "var(--accent-foreground)" : "var(--muted-foreground)" }}
                     />
                     <span style={{ fontWeight: theme === option.value ? 500 : 400 }}>{option.label}</span>
                     {theme === option.value && (
@@ -220,11 +210,14 @@ export function Header() {
                 {/* Admin section — only visible to admins */}
                 {isAdmin && (
                   <>
-                    <DropdownMenuSeparator className="bg-border my-2" />
+                    <DropdownMenuSeparator className="my-2" style={{ backgroundColor: "color-mix(in srgb, white 12%, transparent)" }} />
                     <DropdownMenuItem asChild>
-                      <Link 
-                        href="/admin" 
-                        className="flex items-center gap-2 cursor-pointer rounded-xl transition-all duration-300 px-3 py-2.5 hover:bg-muted text-foreground"
+                      <Link
+                        href="/admin"
+                        className="flex items-center gap-2 cursor-pointer rounded-xl transition-all duration-200 px-3 py-2.5 text-foreground"
+                        style={{ backgroundColor: "transparent" }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = "color-mix(in srgb, white 10%, transparent)" }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = "transparent" }}
                       >
                         <Settings className="h-4 w-4 text-muted-foreground" />
                         <span>Panel de Admin</span>
@@ -243,7 +236,7 @@ export function Header() {
                   <span className="sr-only">Menú de usuario</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 bg-background/80 backdrop-blur-2xl border border-border shadow-2xl p-2 rounded-2xl text-foreground">
+              <DropdownMenuContent align="end" className="w-56 liquid-glass p-2 rounded-2xl border-0 text-foreground">
                 <DropdownMenuLabel className="font-normal px-2 py-1.5 text-muted-foreground">
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium text-foreground">{user?.name}</p>
@@ -254,10 +247,13 @@ export function Header() {
                     </span>
                   </div>
                 </DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-border my-2" />
+                <DropdownMenuSeparator className="my-2" style={{ backgroundColor: "color-mix(in srgb, white 12%, transparent)" }} />
                 <DropdownMenuItem
                   onClick={logout}
-                  className="flex items-center gap-2 cursor-pointer rounded-xl transition-all duration-300 px-3 py-2.5 hover:bg-muted text-foreground"
+                  className="flex items-center gap-2 cursor-pointer rounded-xl transition-all duration-200 px-3 py-2.5 text-foreground"
+                  style={{ backgroundColor: "transparent" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = "color-mix(in srgb, white 10%, transparent)" }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = "transparent" }}
                 >
                   <LogOut className="h-4 w-4 text-muted-foreground" />
                   <span>Cerrar Sesión</span>

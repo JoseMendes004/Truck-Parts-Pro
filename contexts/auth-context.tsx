@@ -40,26 +40,24 @@ const DEMO_USERS = [
   },
 ]
 
+function loadUserFromStorage(): User | null {
+  if (typeof window === "undefined") return null
+  try {
+    const saved = localStorage.getItem("truck-parts-user")
+    if (saved) return JSON.parse(saved)
+  } catch {
+    localStorage.removeItem("truck-parts-user")
+  }
+  return null
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    try {
-      // Check for existing session
-      const savedUser = localStorage.getItem("truck-parts-user")
-      if (savedUser) {
-        try {
-          setUser(JSON.parse(savedUser))
-        } catch {
-          localStorage.removeItem("truck-parts-user")
-        }
-      }
-    } catch (error) {
-      console.error("Error accessing localStorage during auth init:", error)
-    } finally {
-      setIsLoading(false)
-    }
+    setUser(loadUserFromStorage())
+    setIsLoading(false)
   }, [])
 
   const login = async (email: string, password: string): Promise<boolean> => {
