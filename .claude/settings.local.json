@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/Usuario/.claude//**)",
+      "Bash(mkdir -p /c/Users/Usuario/.claude/skills)"
+    ]
+  }
+}

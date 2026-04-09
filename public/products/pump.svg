@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" fill="none">
+  <rect width="400" height="400" fill="#f0f4f8"/>
+  <!-- Pump body -->
+  <circle cx="200" cy="185" r="115" fill="#c0c9d4" stroke="#94a3b8" stroke-width="3"/>
+  <circle cx="200" cy="185" r="75" fill="#94a3b8" stroke="#64748b" stroke-width="3"/>
+  <!-- Impeller blades -->
+  <path d="M200 110 L215 150 L200 185 Z" fill="#475569"/>
+  <path d="M240 125 L225 165 L200 185 Z" fill="#475569"/>
+  <path d="M265 165 L230 180 L200 185 Z" fill="#475569"/>
+  <path d="M265 205 L228 198 L200 185 Z" fill="#475569"/>
+  <path d="M240 245 L215 215 L200 185 Z" fill="#475569"/>
+  <path d="M200 260 L192 222 L200 185 Z" fill="#475569"/>
+  <path d="M160 245 L182 215 L200 185 Z" fill="#475569"/>
+  <path d="M135 205 L170 195 L200 185 Z" fill="#475569"/>
+  <path d="M135 165 L172 175 L200 185 Z" fill="#475569"/>
+  <path d="M160 125 L185 158 L200 185 Z" fill="#475569"/>
+  <!-- Center hub -->
+  <circle cx="200" cy="185" r="30" fill="#334155" stroke="#1e293b" stroke-width="2"/>
+  <circle cx="200" cy="185" r="12" fill="#1e293b"/>
+  <!-- Shaft bolt holes -->
+  <circle cx="200" cy="155" r="6" fill="#1e293b"/>
+  <circle cx="226" cy="200" r="6" fill="#1e293b"/>
+  <circle cx="174" cy="200" r="6" fill="#1e293b"/>
+  <!-- Inlet pipe -->
+  <rect x="183" y="40" width="34" height="45" rx="4" fill="#94a3b8" stroke="#64748b" stroke-width="2"/>
+  <!-- Label -->
+  <text x="200" y="370" text-anchor="middle" font-family="sans-serif" font-size="18" fill="#475569" font-weight="600">Bomba de Agua GMB</text>
+</svg>
