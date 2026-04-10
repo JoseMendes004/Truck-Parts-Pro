@@ -123,11 +123,19 @@ function useCarouselScroll(itemCount: number, itemsPerView: number) {
 
   useEffect(() => {
     const animate = () => {
-      scroll.current.current = lerp(scroll.current.current, scroll.current.target, 0.05)
-      if (trackRef.current) {
-        trackRef.current.style.transform = `translateX(-${scroll.current.current}px)`
+      const diff = scroll.current.target - scroll.current.current
+      if (Math.abs(diff) > 0.05) {
+        scroll.current.current = lerp(scroll.current.current, scroll.current.target, 0.05)
+        if (trackRef.current) {
+          trackRef.current.style.transform = `translateX(-${scroll.current.current}px)`
+        }
+        scroll.current.last = scroll.current.current
+      } else if (scroll.current.current !== scroll.current.target) {
+        scroll.current.current = scroll.current.target
+        if (trackRef.current) {
+          trackRef.current.style.transform = `translateX(-${scroll.current.current}px)`
+        }
       }
-      scroll.current.last = scroll.current.current
       rafId.current = requestAnimationFrame(animate)
     }
     rafId.current = requestAnimationFrame(animate)
@@ -233,6 +241,8 @@ export function ProductsCarousel() {
   const [itemsPerView, setItemsPerView] = useState(4)
   const [loadedProducts, setLoadedProducts] = useState(staticProducts)
   const [search, setSearch] = useState("")
+  const savedIndexRef = useRef(0)
+  const isFirstLoadRef = useRef(true)
 
   const filteredProducts = search.trim()
     ? loadedProducts.filter((p) =>
@@ -284,6 +294,21 @@ export function ProductsCarousel() {
     return () => window.removeEventListener('productsUpdated', loadCustomProducts)
   }, [])
 
+  // Save current carousel index so it can be restored after product reloads
+  useEffect(() => {
+    savedIndexRef.current = currentIndex
+  }, [currentIndex])
+
+  // Restore carousel position after products are reloaded by productsUpdated event
+  useEffect(() => {
+    if (isFirstLoadRef.current) {
+      isFirstLoadRef.current = false
+      return
+    }
+    const targetIndex = Math.min(savedIndexRef.current, maxIndex)
+    goTo(targetIndex)
+  }, [loadedProducts]) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth < 640) {
@@ -324,7 +349,13 @@ export function ProductsCarousel() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               <Input
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); goTo(0) }}
+                onChange={(e) => {
+                  const wasEmpty = search.trim() === ""
+                  setSearch(e.target.value)
+                  if (wasEmpty && e.target.value.trim() !== "") {
+                    goTo(0)
+                  }
+                }}
                 placeholder="Buscar producto o categoría..."
                 className="pl-9 pr-8 h-9 text-sm bg-secondary/20 border-border"
               />

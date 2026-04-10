@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useTheme } from "@/contexts/theme-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -68,6 +68,14 @@ export function ColoresSection({ onPreviewChange }: ColoresSectionProps) {
   const [openDark, setOpenDark] = useState(false)
   const [openColorblind, setOpenColorblind] = useState(false)
   const contentTopRef = useRef<HTMLDivElement>(null)
+  const prevEditingRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (editingThemeId !== null && prevEditingRef.current === null) {
+      contentTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    }
+    prevEditingRef.current = editingThemeId
+  }, [editingThemeId])
 
   const handleColorChange = (key: keyof PreviewTheme["colors"], value: string) => {
     const updated = { ...newTheme, colors: { ...newTheme.colors, [key]: value } }
@@ -114,7 +122,6 @@ export function ColoresSection({ onPreviewChange }: ColoresSectionProps) {
     }
     setNewTheme(t)
     onPreviewChange(t)
-    contentTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
   }
 
   const cancelEditing = () => {
