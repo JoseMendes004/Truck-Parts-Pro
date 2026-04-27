@@ -9,15 +9,6 @@ const CONFIG = {
   EXTRUDE_DEPTH: 1.0,
   HOLD_MS: 600, // Matches figura.html
   TRANS_MS: 400, // Matches figura.html
-  COLORS: [
-    0x38bdf8, // Sky
-    0x818cf8, // Indigo
-    0xc084fc, // Purple
-    0xf472b6, // Pink
-    0xfbbf24, // Amber
-    0x34d399, // Emerald
-    0x94a3b8, // Slate
-  ],
 };
 
 const RAW_FIGURES = [
@@ -105,6 +96,7 @@ const Utils = {
 
 export const LoadingScreen = () => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const engineRef = useRef<any>(null);
   const { isLoading, hideLoading, showLoading } = useLoading();
   const [shouldRender, setShouldRender] = useState(isLoading);
   const [opacity, setOpacity] = useState(1);
@@ -142,170 +134,213 @@ export const LoadingScreen = () => {
   useEffect(() => {
     if (!shouldRender || !containerRef.current) return;
 
-    const figures = RAW_FIGURES.map((raw) => ({
-      label: raw.label,
-      props: Utils.normalize(raw).map(Utils.decompose),
-    }));
+    // Small delay to ensure ThemeProvider has applied variables
+    const initTimer = setTimeout(() => {
+      if (!containerRef.current) return;
 
-    // Scene setup
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    containerRef.current.appendChild(renderer.domElement);
+      // Helper to resolve CSS variables (including oklch) to RGB strings
+      const resolveColor = (cssVar: string) => {
+        const temp = document.createElement('div');
+        temp.style.color = `var(${cssVar})`;
+        temp.style.display = 'none';
+        document.body.appendChild(temp);
+        const computed = getComputedStyle(temp).color;
+        document.body.removeChild(temp);
+        return computed;
+      };
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(
-      40,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      1000
-    );
-    camera.position.set(0, 0, 25);
-
-    // Lights
-    const ambLight = new THREE.AmbientLight(0xffffff, 0.6);
-    scene.add(ambLight);
-
-    const spotLight = new THREE.SpotLight(0xffffff, 1000);
-    spotLight.position.set(15, 20, 25);
-    spotLight.castShadow = true;
-    spotLight.shadow.mapSize.set(1024, 1024);
-    scene.add(spotLight);
-
-    const fillLight = new THREE.PointLight(0x38bdf8, 500);
-    fillLight.position.set(-15, -10, 10);
-    scene.add(fillLight);
-
-    // Pieces
-    const pieces: any[] = [];
-    const group = new THREE.Group();
-    scene.add(group);
-
-    for (let i = 0; i < 7; i++) {
-      const pGroup = new THREE.Group();
-      const { base } = figures[0].props[i];
-
-      const shape = new THREE.Shape();
-      shape.moveTo(base[0][0], base[0][1]);
-      for (let j = 1; j < base.length; j++) shape.lineTo(base[j][0], base[j][1]);
-      shape.closePath();
-
-      const geo = new THREE.ExtrudeGeometry(shape, {
-        depth: CONFIG.EXTRUDE_DEPTH,
-        bevelEnabled: true,
-        bevelThickness: 0.1,
-        bevelSize: 0.1,
-        bevelSegments: 3,
-      });
-      geo.translate(0, 0, -CONFIG.EXTRUDE_DEPTH / 2);
-
-      const mat = new THREE.MeshPhysicalMaterial({
-        color: CONFIG.COLORS[i],
-        roughness: 0.2,
-        metalness: 0.8,
-        clearcoat: 1.0,
-        clearcoatRoughness: 0.1,
+      // Read colors from CSS variables
+      const accentRGB = resolveColor('--accent') || '#3b82f6';
+      const bgRGB = resolveColor('--background') || '#0f172a';
+      
+      const accentColor = new THREE.Color(accentRGB);
+      
+      // Generate a variation of colors based on accent
+      const hsl = { h: 0, s: 0, l: 0 };
+      accentColor.getHSL(hsl);
+      const PIECE_COLORS = Array.from({ length: 7 }, (_, i) => {
+        const color = new THREE.Color();
+        // Vary lightness and saturation slightly for each piece
+        const l = Math.max(0.3, Math.min(0.8, hsl.l + (i - 3) * 0.05));
+        const s = Math.max(0.4, Math.min(0.9, hsl.s + (i % 2 === 0 ? 0.1 : -0.1)));
+        color.setHSL(hsl.h, s, l);
+        return color;
       });
 
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
+      const figures = RAW_FIGURES.map((raw) => ({
+        label: raw.label,
+        props: Utils.normalize(raw).map(Utils.decompose),
+      }));
 
-      pGroup.add(mesh);
-      group.add(pGroup);
-      pieces.push({ group: pGroup, mesh: mesh });
-    }
+      // Scene setup
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      containerRef.current.appendChild(renderer.domElement);
 
-    let startTime: number | null = null;
-    let animationId: number;
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(
+        40,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      camera.position.set(0, 0, 25);
 
-    const animate = (now: number) => {
-      if (!startTime) startTime = now;
+      // Lights
+      const ambLight = new THREE.AmbientLight(0xffffff, 0.6);
+      scene.add(ambLight);
 
-      const phaseMs = CONFIG.HOLD_MS + CONFIG.TRANS_MS;
-      const cycleMs = phaseMs * figures.length;
-      const elapsed = (now - startTime) % cycleMs;
-      const phaseIndex = Math.floor(elapsed / phaseMs);
-      const phaseElapsed = elapsed % phaseMs;
+      const spotLight = new THREE.SpotLight(0xffffff, 1000);
+      spotLight.position.set(15, 20, 25);
+      spotLight.castShadow = true;
+      spotLight.shadow.mapSize.set(1024, 1024);
+      scene.add(spotLight);
 
-      const fromFig = figures[phaseIndex];
-      const toFig = figures[(phaseIndex + 1) % figures.length];
+      const fillLight = new THREE.PointLight(accentColor, 500);
+      fillLight.position.set(-15, -10, 10);
+      scene.add(fillLight);
 
-      let t = 0,
-        jump = 0,
-        extraRot = 0;
-      if (phaseElapsed > CONFIG.HOLD_MS) {
-        const rawT = (phaseElapsed - CONFIG.HOLD_MS) / CONFIG.TRANS_MS;
-        t = Utils.easeInOutCubic(rawT);
-        jump = Math.sin(t * Math.PI) * 2.5; // Matches figura.html
-        extraRot = Math.sin(t * Math.PI) * 0.4; // Matches figura.html
-      }
+      // Pieces
+      const pieces: any[] = [];
+      const group = new THREE.Group();
+      scene.add(group);
 
-      pieces.forEach((p, i) => {
-        const p1 = fromFig.props[i];
-        const p2 = toFig.props[i];
-
-        p.group.position.set(
-          Utils.lerp(p1.centroid[0], p2.centroid[0], t),
-          Utils.lerp(p1.centroid[1], p2.centroid[1], t),
-          jump
-        );
-
-        p.group.rotation.set(
-          extraRot,
-          extraRot * 0.5,
-          Utils.lerpAngle(p1.angle, p2.angle, t)
-        );
-
-        const baseInterp = p1.base.map((pt: any, j: number) => [
-          Utils.lerp(pt[0], p2.base[j][0], t),
-          Utils.lerp(pt[1], p2.base[j][1], t),
-        ]);
+      for (let i = 0; i < 7; i++) {
+        const pGroup = new THREE.Group();
+        const { base } = figures[0].props[i];
 
         const shape = new THREE.Shape();
-        shape.moveTo(baseInterp[0][0], baseInterp[0][1]);
-        for (let j = 1; j < baseInterp.length; j++)
-          shape.lineTo(baseInterp[j][0], baseInterp[j][1]);
+        shape.moveTo(base[0][0], base[0][1]);
+        for (let j = 1; j < base.length; j++) shape.lineTo(base[j][0], base[j][1]);
         shape.closePath();
 
-        p.mesh.geometry.dispose();
-        p.mesh.geometry = new THREE.ExtrudeGeometry(shape, {
+        const geo = new THREE.ExtrudeGeometry(shape, {
           depth: CONFIG.EXTRUDE_DEPTH,
           bevelEnabled: true,
           bevelThickness: 0.1,
           bevelSize: 0.1,
           bevelSegments: 3,
         });
-        p.mesh.geometry.translate(0, 0, -CONFIG.EXTRUDE_DEPTH / 2);
-      });
+        geo.translate(0, 0, -CONFIG.EXTRUDE_DEPTH / 2);
 
-      // Static tilt from figura.html
-      group.rotation.y = 0;
-      group.rotation.x = 0.2;
+        const mat = new THREE.MeshPhysicalMaterial({
+          color: PIECE_COLORS[i],
+          roughness: 0.2,
+          metalness: 0.8,
+          clearcoat: 1.0,
+          clearcoatRoughness: 0.1,
+        });
 
-      renderer.render(scene, camera);
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+
+        pGroup.add(mesh);
+        group.add(pGroup);
+        pieces.push({ group: pGroup, mesh: mesh });
+      }
+
+      let startTime: number | null = null;
+      let animationId: number;
+
+      const animate = (now: number) => {
+        if (!startTime) startTime = now;
+
+        const phaseMs = CONFIG.HOLD_MS + CONFIG.TRANS_MS;
+        const cycleMs = phaseMs * figures.length;
+        const elapsed = (now - startTime) % cycleMs;
+        const phaseIndex = Math.floor(elapsed / phaseMs);
+        const phaseElapsed = elapsed % phaseMs;
+
+        const fromFig = figures[phaseIndex];
+        const toFig = figures[(phaseIndex + 1) % figures.length];
+
+        let t = 0,
+          jump = 0,
+          extraRot = 0;
+        if (phaseElapsed > CONFIG.HOLD_MS) {
+          const rawT = (phaseElapsed - CONFIG.HOLD_MS) / CONFIG.TRANS_MS;
+          t = Utils.easeInOutCubic(rawT);
+          jump = Math.sin(t * Math.PI) * 2.5; // Matches figura.html
+          extraRot = Math.sin(t * Math.PI) * 0.4; // Matches figura.html
+        }
+
+        pieces.forEach((p, i) => {
+          const p1 = fromFig.props[i];
+          const p2 = toFig.props[i];
+
+          p.group.position.set(
+            Utils.lerp(p1.centroid[0], p2.centroid[0], t),
+            Utils.lerp(p1.centroid[1], p2.centroid[1], t),
+            jump
+          );
+
+          p.group.rotation.set(
+            extraRot,
+            extraRot * 0.5,
+            Utils.lerpAngle(p1.angle, p2.angle, t)
+          );
+
+          const baseInterp = p1.base.map((pt: any, j: number) => [
+            Utils.lerp(pt[0], p2.base[j][0], t),
+            Utils.lerp(pt[1], p2.base[j][1], t),
+          ]);
+
+          const shape = new THREE.Shape();
+          shape.moveTo(baseInterp[0][0], baseInterp[0][1]);
+          for (let j = 1; j < baseInterp.length; j++)
+            shape.lineTo(baseInterp[j][0], baseInterp[j][1]);
+          shape.closePath();
+
+          p.mesh.geometry.dispose();
+          p.mesh.geometry = new THREE.ExtrudeGeometry(shape, {
+            depth: CONFIG.EXTRUDE_DEPTH,
+            bevelEnabled: true,
+            bevelThickness: 0.1,
+            bevelSize: 0.1,
+            bevelSegments: 3,
+          });
+          p.mesh.geometry.translate(0, 0, -CONFIG.EXTRUDE_DEPTH / 2);
+        });
+
+        // Static tilt from figura.html
+        group.rotation.y = 0;
+        group.rotation.x = 0.2;
+
+        renderer.render(scene, camera);
+        animationId = requestAnimationFrame(animate);
+      };
+
       animationId = requestAnimationFrame(animate);
-    };
 
-    animationId = requestAnimationFrame(animate);
+      const handleResize = () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      };
 
-    const handleResize = () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    };
+      window.addEventListener('resize', handleResize);
 
-    window.addEventListener('resize', handleResize);
+      engineRef.current = {
+        cleanup: () => {
+          cancelAnimationFrame(animationId);
+          window.removeEventListener('resize', handleResize);
+          if (containerRef.current && renderer.domElement.parentNode === containerRef.current) {
+            containerRef.current.removeChild(renderer.domElement);
+          }
+          renderer.dispose();
+        }
+      };
+    }, 100); // 100ms delay to let theme settle
 
     return () => {
-      cancelAnimationFrame(animationId);
-      window.removeEventListener('resize', handleResize);
-      if (containerRef.current && renderer.domElement.parentNode === containerRef.current) {
-        containerRef.current.removeChild(renderer.domElement);
+      clearTimeout(initTimer);
+      if (engineRef.current) {
+        engineRef.current.cleanup();
       }
-      renderer.dispose();
     };
   }, [shouldRender]);
 
@@ -317,7 +352,7 @@ export const LoadingScreen = () => {
         position: 'fixed',
         inset: 0,
         zIndex: 9999,
-        background: 'radial-gradient(circle at center, #1e293b 0%, #0f172a 100%)',
+        background: 'var(--background)',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
