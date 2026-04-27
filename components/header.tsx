@@ -44,7 +44,7 @@ import {
 export function Header() {
   const { user, logout, isAdmin } = useAuth()
   const { theme, setTheme } = useTheme()
-  const { items, removeItem, updateQty, total, count } = useCart()
+  const { items, removeItem, updateQty, total, count, invoice } = useCart()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [checkoutOpen, setCheckoutOpen] = useState(false)
 
@@ -97,15 +97,20 @@ export function Header() {
               </SheetTrigger>
               <SheetContent className="w-full sm:max-w-md flex flex-col bg-background border-border">
                 <SheetHeader className="border-b border-border pb-4">
-                  <SheetTitle className="flex items-center gap-2 text-foreground">
-                    <ShoppingCart className="h-5 w-5" style={{ color: "var(--accent)" }} />
-                    Carrito
-                    {count > 0 && (
-                      <span className="ml-1 px-2 py-0.5 rounded-full text-xs font-bold"
-                        style={{ backgroundColor: "var(--accent)", color: "var(--accent-foreground)" }}>
-                        {count}
-                      </span>
-                    )}
+                  <SheetTitle className="flex flex-col gap-1 text-foreground">
+                    <div className="flex items-center gap-2">
+                      <ShoppingCart className="h-5 w-5" style={{ color: "var(--accent)" }} />
+                      Carrito
+                      {count > 0 && (
+                        <span className="ml-1 px-2 py-0.5 rounded-full text-xs font-bold"
+                          style={{ backgroundColor: "var(--accent)", color: "var(--accent-foreground)" }}>
+                          {count}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                      Facturando a: {invoice.compName}
+                    </p>
                   </SheetTitle>
                 </SheetHeader>
 

@@ -6,7 +6,9 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Printer, FileText, Building2, Receipt, Stamp } from "lucide-react"
+import { Printer, FileText, Building2, Receipt, Stamp, Save } from "lucide-react"
+import { useCart } from "@/contexts/cart-context"
+import { useToast } from "@/components/ui/use-toast"
 
 const DEFAULT_INVOICE = {
   compName: "TRUCKSPARTS, C.A.",
@@ -37,12 +39,22 @@ const SECTIONS: { key: SectionKey; label: string; icon: React.ElementType }[] = 
 ]
 
 export function AdminFactura() {
-  const [invoice, setInvoice] = useState(DEFAULT_INVOICE)
+  const { invoice: contextInvoice, updateInvoice } = useCart()
+  const { toast } = useToast()
+  const [invoice, setInvoice] = useState(contextInvoice)
   const [activeSection, setActiveSection] = useState<SectionKey>("empresa")
 
-  const set = useCallback((key: keyof typeof DEFAULT_INVOICE, value: string) => {
+  const set = useCallback((key: keyof typeof contextInvoice, value: string) => {
     setInvoice((prev) => ({ ...prev, [key]: value }))
   }, [])
+
+  const handleSave = () => {
+    updateInvoice(invoice)
+    toast({
+      title: "Factura Guardada",
+      description: "Los cambios se han aplicado correctamente al sistema.",
+    })
+  }
 
   const handlePrint = () => {
     const printContent = document.getElementById("factura-preview")
@@ -182,6 +194,12 @@ export function AdminFactura() {
               </div>
             </div>
           )}
+
+          <div className="mt-8 border-t border-border pt-4">
+            <Button className="w-full gap-2 font-semibold" style={{ backgroundColor: "var(--accent)", color: "var(--accent-foreground)" }} onClick={handleSave}>
+              <Save className="h-4 w-4" /> Guardar Cambios
+            </Button>
+          </div>
 
         </CardContent>
       </Card>

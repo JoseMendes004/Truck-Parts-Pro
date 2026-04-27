@@ -37,7 +37,7 @@ function generateOrderNumber() {
 }
 
 export function CheckoutDialog({ open, onOpenChange }: CheckoutDialogProps) {
-  const { items, total, clear } = useCart()
+  const { items, total, clear, invoice } = useCart()
   const [step, setStep] = useState<Step>("form")
   const [ordenCompra] = useState(() => generateOrderNumber())
   const [client, setClient] = useState<ClientData>({
@@ -54,9 +54,9 @@ export function CheckoutDialog({ open, onOpenChange }: CheckoutDialogProps) {
   const iva = subtotal * 0.16
   const totalFinal = subtotal + iva
 
-  // Invoice numbers — static for demo
-  const controlNo = "00-0004563"
-  const invoiceNo = "00004563"
+  // Invoice numbers and metadata from global context
+  const controlNo = invoice.controlNo
+  const invoiceNo = invoice.invoiceNo
   const today = new Date().toLocaleDateString("es-VE")
   const time = new Date().toLocaleTimeString("es-VE")
 
@@ -191,12 +191,12 @@ export function CheckoutDialog({ open, onOpenChange }: CheckoutDialogProps) {
               {/* Header */}
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "16px", borderBottom: "2px solid #000", paddingBottom: "10px", gap: "12px" }}>
                 <div style={{ flex: 1 }}>
-                  <h1 style={{ margin: "0 0 4px 0", fontSize: "16px" }}>TRUCKSPARTS, C.A.</h1>
+                  <h1 style={{ margin: "0 0 4px 0", fontSize: "16px" }}>{invoice.compName}</h1>
                   <div style={{ lineHeight: 1.55 }}>
-                    <strong>RIF: J-40823910-0</strong><br />
-                    <strong>Domicilio Fiscal:</strong> Calle Los Laboratorios, Edif. Industrial Center, PB, Los Ruices, Caracas.<br />
-                    Tel: (0212) 235-9988 | ventas@trucksparts.com.ve<br />
-                    <em>CONTRIBUYENTE ESPECIAL</em>
+                    <strong>RIF: {invoice.compRif}</strong><br />
+                    <strong>Domicilio Fiscal:</strong> {invoice.compAddress}<br />
+                    Tel: {invoice.compPhone} | {invoice.compEmail}<br />
+                    <em>{invoice.compStatus}</em>
                   </div>
                 </div>
                 <div style={{ width: "36%", textAlign: "right", border: "2px solid #000", padding: "10px", flexShrink: 0, lineHeight: 1.7 }}>
@@ -271,13 +271,15 @@ export function CheckoutDialog({ open, onOpenChange }: CheckoutDialogProps) {
               <div style={{ fontSize: "9.5px", border: "1px dashed #555", padding: "8px 12px", display: "grid", gridTemplateColumns: "1fr 1fr", lineHeight: 1.6 }}>
                 <div>
                   <strong>DATOS DE LA IMPRENTA (Art. 7 Num. 14):</strong><br />
-                  Nombre: TRUCKSPARTS INTERNAL PRINTING, S.A.<br />
-                  RIF: J-40823910-1 | N° Providencia: SENIAT/INTI/2026/0122
+                  Nombre: {invoice.printerName}<br />
+                  RIF: {invoice.printerRif} | N° Providencia: {invoice.printerProvidence}<br />
+                  Fecha de Impresión: {invoice.printerDate}
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <strong>VIGENCIA (Art. 7 Num. 15):</strong><br />
-                  Desde el N° 00-0005001 hasta 00-0006000<br />
-                  <strong>Válido hasta: 01/03/2027</strong>
+                  Desde el N° {invoice.validRange}<br />
+                  Fecha de Emisión del Talonario: {invoice.validIssue}<br />
+                  <strong>Válido hasta: {invoice.validUntil}</strong>
                 </div>
               </div>
 

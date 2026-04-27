@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { useLoading } from "./loading-context"
 
 type UserRole = "user" | "admin" | null
 
@@ -54,6 +55,7 @@ function loadUserFromStorage(): User | null {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const { showLoading, hideLoading } = useLoading()
 
   useEffect(() => {
     setUser(loadUserFromStorage())
@@ -61,8 +63,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = async (email: string, password: string): Promise<boolean> => {
+    showLoading()
     // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 800))
+    await new Promise((resolve) => setTimeout(resolve, 1200))
 
     const foundUser = DEMO_USERS.find(
       (u) => u.email === email && u.password === password
@@ -77,15 +80,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setUser(userData)
       localStorage.setItem("truck-parts-user", JSON.stringify(userData))
+      hideLoading()
       return true
     }
 
+    hideLoading()
     return false
   }
 
-  const logout = () => {
+  const logout = async () => {
+    showLoading()
+    await new Promise((resolve) => setTimeout(resolve, 800))
     setUser(null)
     localStorage.removeItem("truck-parts-user")
+    hideLoading()
   }
 
   return (

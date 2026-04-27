@@ -6,6 +6,8 @@ import { AuthProvider } from '@/contexts/auth-context'
 import { FontApplier } from '@/components/font-applier'
 import { CartProvider } from '@/contexts/cart-context'
 import { Toaster } from '@/components/ui/sonner'
+import { LoadingScreen } from '@/components/loading-screen'
+import { LoadingProvider } from '@/contexts/loading-context'
 import './globals.css'
 
 const geistSans = Geist({
@@ -45,15 +47,18 @@ export default function RootLayout({
   return (
     <html lang="es" className="dark" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
-        <AuthProvider>
-          <ThemeProvider>
-            <CartProvider>
-              <FontApplier />
-              {children}
-              <Toaster />
-            </CartProvider>
-          </ThemeProvider>
-        </AuthProvider>
+        <LoadingProvider>
+          <LoadingScreen />
+          <AuthProvider>
+            <ThemeProvider>
+              <CartProvider>
+                <FontApplier />
+                {children}
+                <Toaster />
+              </CartProvider>
+            </ThemeProvider>
+          </AuthProvider>
+        </LoadingProvider>
         <Analytics />
       </body>
     </html>

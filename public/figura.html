@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Morphing Tangram 3D</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --accent: #38bdf8;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--bg);
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+        canvas { display: block; outline: none; }
+
+    </style>
+</head>
+<body>
+
+
+
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js"
+    }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+// ── Configuration ─────────────────────────────────────────────────────────────
+const WORLD_SIZE = 14;
+const EXTRUDE_DEPTH = 1.0;
+const HOLD_MS = 600;
+const TRANS_MS = 400;
+const PIECE_COLORS = [
+    0x38bdf8, // Sky
+    0x818cf8, // Indigo
+    0xc084fc, // Purple
+    0xf472b6, // Pink
+    0xfbbf24, // Amber
+    0x34d399, // Emerald
+    0x94a3b8  // Slate
+];
+
+// ── Raw Data (Re-ordered for consistency) ──────────────────────────────────────
+// Order: [LargeT1, LargeT2, MediumT, SmallT1, SmallT2, Square, Parallelogram]
+const RAW_DATA = [
+    {
+        label: "8",
+        vb: [60, 90, 400, 260],
+        pieces: [
+            [[210,100],[350,100],[350,240]], // LargeT1
+            [[350,100],[450,200],[350,300]], // LargeT2
+            [[210,100],[210,200],[310,200]], // MediumT
+            [[70,170],[140,100],[140,170]],  // SmallT1
+            [[315,335],[385,335],[385,265]], // SmallT2
+            [[140,100],[210,100],[210,170],[140,170]], // Square
+            [[140,270],[210,200],[280,200],[210,270]]  // Parallelogram
+        ]
+    },
+    {
+        label: "82",
+        vb: [-35, -35, 250, 250],
+        pieces: [
+            [[0,0],[120,0],[120,120]],       // LargeT1
+            [[0,0],[0,120],[120,120]],       // LargeT2
+            [[120,120],[180,60],[180,180]],  // MediumT
+            [[60,120],[120,180],[60,180]],   // SmallT1
+            [[120,0],[180,0],[180,60]],      // SmallT2
+            [[0,120],[60,120],[60,180],[0,180]], // Square
+            [[60,120],[120,120],[180,180],[120,180]] // Parallelogram
+        ]
+    },
+    {
+        label: "163",
+        vb: [170, -10, 160, 355],
+        pieces: [
+            [[179,220],[321,220],[250,291]], // LargeT1
+            [[250,150],[179,220],[321,220]], // LargeT2
+            [[200,150],[300,150],[300,50]],  // MediumT
+            [[200,50],[200,150],[250,100]],  // SmallT1
+            [[285,299],[320,334],[250,334]], // SmallT2
+            [[250,0],[200,50],[250,100],[300,50]], // Square
+            [[215,299],[285,299],[250,334],[180,334]] // Parallelogram
+        ]
+    }
+];
+
+// ── Utils ──────────────────────────────────────────────────────────────────────
+function normalize(fig) {
+    const [vx, vy, vw, vh] = fig.vb;
+    const scale = WORLD_SIZE / Math.max(vw, vh);
+    return fig.pieces.map(pts => pts.map(([x, y]) => [
+        (x - vx - vw / 2) * scale,
+        -(y - vy - vh / 2) * scale
+    ]));
+}
+
+function decompose(pts) {
+    const centroid = [0, 0];
+    pts.forEach(p => { centroid[0] += p[0]; centroid[1] += p[1]; });
+    centroid[0] /= pts.length;
+    centroid[1] /= pts.length;
+
+    const local = pts.map(p => [p[0] - centroid[0], p[1] - centroid[1]]);
+    
+    // Find orientation based on longest edge or first edge
+    // For tangram, first edge is usually reliable
+    let angle = Math.atan2(local[1][1] - local[0][1], local[1][0] - local[0][0]);
+    
+    // Rotate local points to "base" orientation
+    const cos = Math.cos(-angle);
+    const sin = Math.sin(-angle);
+    const base = local.map(p => [
+        p[0] * cos - p[1] * sin,
+        p[0] * sin + p[1] * cos
+    ]);
+
+    return { centroid, angle, base };
+}
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function lerpAngle(a, b, t) {
+    const diff = (b - a + Math.PI) % (Math.PI * 2) - Math.PI;
+    const finalDiff = diff < -Math.PI ? diff + Math.PI * 2 : diff;
+    return a + finalDiff * t;
+}
+
+function easeInOutCubic(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+// ── Scene Setup ───────────────────────────────────────────────────────────────
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(0, 0, 25);
+
+// ── Lights ─────────────────────────────────────────────────────────────────────
+const ambLight = new THREE.AmbientLight(0xffffff, 0.6);
+scene.add(ambLight);
+
+const spotLight = new THREE.SpotLight(0xffffff, 1000);
+spotLight.position.set(15, 20, 25);
+spotLight.castShadow = true;
+spotLight.shadow.mapSize.width = 1024;
+spotLight.shadow.mapSize.height = 1024;
+scene.add(spotLight);
+
+const fillLight = new THREE.PointLight(0x38bdf8, 500);
+fillLight.position.set(-15, -10, 10);
+scene.add(fillLight);
+
+// ── Processing Figures ─────────────────────────────────────────────────────────
+const figures = RAW_DATA.map(raw => ({
+    label: raw.label,
+    props: normalize(raw).map(decompose)
+}));
+
+// ── Piece Groups ───────────────────────────────────────────────────────────────
+const pieces = [];
+const group = new THREE.Group();
+scene.add(group);
+
+for (let i = 0; i < 7; i++) {
+    const pGroup = new THREE.Group();
+    
+    // Initial geometry from first figure
+    const { base } = figures[0].props[i];
+    const shape = new THREE.Shape();
+    shape.moveTo(base[0][0], base[0][1]);
+    for (let j = 1; j < base.length; j++) shape.lineTo(base[j][0], base[j][1]);
+    shape.closePath();
+
+    const geo = new THREE.ExtrudeGeometry(shape, {
+        depth: EXTRUDE_DEPTH,
+        bevelEnabled: true,
+        bevelThickness: 0.1,
+        bevelSize: 0.1,
+        bevelSegments: 3
+    });
+    geo.translate(0, 0, -EXTRUDE_DEPTH / 2);
+
+    const mat = new THREE.MeshPhysicalMaterial({
+        color: PIECE_COLORS[i],
+        roughness: 0.2,
+        metalness: 0.8,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.1,
+    });
+
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    
+    pGroup.add(mesh);
+    group.add(pGroup);
+    
+    pieces.push({
+        group: pGroup,
+        mesh: mesh,
+        id: i
+    });
+}
+
+// ── Animation Loop ─────────────────────────────────────────────────────────────
+let startTime = null;
+const PHASE_MS = HOLD_MS + TRANS_MS;
+const CYCLE_MS = PHASE_MS * figures.length;
+
+
+function update(now) {
+    if (!startTime) startTime = now;
+    const elapsed = (now - startTime) % CYCLE_MS;
+    const phaseIndex = Math.floor(elapsed / PHASE_MS);
+    const phaseElapsed = elapsed % PHASE_MS;
+
+    const fromFig = figures[phaseIndex];
+    const toFig = figures[(phaseIndex + 1) % figures.length];
+    
+
+
+    let t = 0;
+    let jump = 0;
+    let extraRot = 0;
+
+    if (phaseElapsed > HOLD_MS) {
+        const rawT = (phaseElapsed - HOLD_MS) / TRANS_MS;
+        t = easeInOutCubic(rawT);
+        // 3D Jump effect: lift pieces in Z and rotate them slightly
+        jump = Math.sin(t * Math.PI) * 2.5;
+        extraRot = Math.sin(t * Math.PI) * 0.4;
+    }
+
+    pieces.forEach((p, i) => {
+        const p1 = fromFig.props[i];
+        const p2 = toFig.props[i];
+
+        // 1. Interpolate Centroid (Position)
+        const cx = lerp(p1.centroid[0], p2.centroid[0], t);
+        const cy = lerp(p1.centroid[1], p2.centroid[1], t);
+        p.group.position.set(cx, cy, jump);
+
+        // 2. Interpolate Angle (Rotation Z)
+        const ang = lerpAngle(p1.angle, p2.angle, t);
+        p.group.rotation.z = ang;
+        
+        // 3. Add 3D "Flip" during transition
+        p.group.rotation.x = extraRot;
+        p.group.rotation.y = extraRot * 0.5;
+
+        // 4. Update Shape Geometry (if it morphs)
+        // Optimization: only update if base points differ significantly
+        const baseInterp = p1.base.map((pt, j) => [
+            lerp(pt[0], p2.base[j][0], t),
+            lerp(pt[1], p2.base[j][1], t)
+        ]);
+
+        const shape = new THREE.Shape();
+        shape.moveTo(baseInterp[0][0], baseInterp[0][1]);
+        for (let j = 1; j < baseInterp.length; j++) shape.lineTo(baseInterp[j][0], baseInterp[j][1]);
+        shape.closePath();
+
+        p.mesh.geometry.dispose();
+        p.mesh.geometry = new THREE.ExtrudeGeometry(shape, {
+            depth: EXTRUDE_DEPTH,
+            bevelEnabled: true,
+            bevelThickness: 0.1,
+            bevelSize: 0.1,
+            bevelSegments: 3
+        });
+        p.mesh.geometry.translate(0, 0, -EXTRUDE_DEPTH / 2);
+    });
+
+    // Static global tilt for 3D perspective without swaying
+    group.rotation.y = 0;
+    group.rotation.x = 0.2;
+
+    renderer.render(scene, camera);
+    requestAnimationFrame(update);
+}
+
+requestAnimationFrame(update);
+
+// ── Resize ─────────────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
