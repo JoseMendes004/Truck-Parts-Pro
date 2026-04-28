@@ -55,7 +55,7 @@ function loadUserFromStorage(): User | null {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const { showLoading, hideLoading } = useLoading()
+  const { showLoading, hideLoading, isLoadingScreenEnabled } = useLoading()
 
   useEffect(() => {
     setUser(loadUserFromStorage())
@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    showLoading()
+    if (isLoadingScreenEnabled) showLoading()
     // Simulate API call delay
     await new Promise((resolve) => setTimeout(resolve, 1200))
 
@@ -89,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = async () => {
-    showLoading()
+    if (isLoadingScreenEnabled) showLoading()
     await new Promise((resolve) => setTimeout(resolve, 800))
     setUser(null)
     localStorage.removeItem("truck-parts-user")

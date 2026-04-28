@@ -5,10 +5,10 @@ import * as THREE from 'three';
 import { useLoading } from '@/contexts/loading-context';
 
 const CONFIG = {
-  WORLD_SIZE: 14,
+  WORLD_SIZE: 10,
   EXTRUDE_DEPTH: 1.0,
-  HOLD_MS: 600, // Matches figura.html
-  TRANS_MS: 400, // Matches figura.html
+  HOLD_MS: 800,
+  TRANS_MS: 1500,
 };
 
 const RAW_FIGURES = [
@@ -97,11 +97,15 @@ const Utils = {
 export const LoadingScreen = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<any>(null);
-  const { isLoading, hideLoading, showLoading } = useLoading();
-  const [shouldRender, setShouldRender] = useState(isLoading);
+  const { isLoading, hideLoading, showLoading, isLoadingScreenEnabled } = useLoading();
+  const [shouldRender, setShouldRender] = useState(false);
   const [opacity, setOpacity] = useState(1);
 
   useEffect(() => {
+    if (!isLoadingScreenEnabled) {
+      setShouldRender(false);
+      return;
+    }
     if (isLoading) {
       setShouldRender(true);
       setOpacity(1);
@@ -110,26 +114,21 @@ export const LoadingScreen = () => {
       const timer = setTimeout(() => setShouldRender(false), 800);
       return () => clearTimeout(timer);
     }
-  }, [isLoading]);
+  }, [isLoading, isLoadingScreenEnabled]);
 
-  // Initial fade out after 1.5s
   useEffect(() => {
-    const timer = setTimeout(() => {
-      hideLoading();
-    }, 1500);
+    // We no longer use a fixed timeout here. 
+    // The hideLoading() will be called from the animation loop.
     
-    // Listen for beforeunload to show loading on reload/close
     const handleBeforeUnload = () => {
-      showLoading();
+      if (isLoadingScreenEnabled) showLoading();
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
-
     return () => {
-      clearTimeout(timer);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [hideLoading, showLoading]);
+  }, [showLoading, isLoadingScreenEnabled]);
 
   useEffect(() => {
     if (!shouldRender || !containerRef.current) return;
@@ -158,19 +157,32 @@ export const LoadingScreen = () => {
       // Generate a variation of colors based on accent
       const hsl = { h: 0, s: 0, l: 0 };
       accentColor.getHSL(hsl);
-      const PIECE_COLORS = Array.from({ length: 7 }, (_, i) => {
+      const PIECE_COLORS = Array.from({ length: 7 }, () => {
         const color = new THREE.Color();
-        // Vary lightness and saturation slightly for each piece
-        const l = Math.max(0.3, Math.min(0.8, hsl.l + (i - 3) * 0.05));
-        const s = Math.max(0.4, Math.min(0.9, hsl.s + (i % 2 === 0 ? 0.1 : -0.1)));
-        color.setHSL(hsl.h, s, l);
+        color.setHSL(hsl.h, hsl.s, hsl.l);
         return color;
       });
 
-      const figures = RAW_FIGURES.map((raw) => ({
+      const baseFigures = RAW_FIGURES.map((raw) => ({
         label: raw.label,
         props: Utils.normalize(raw).map(Utils.decompose),
       }));
+
+      const figures = [
+        // Hidden 'Scattered' state for the intro
+        {
+          label: "scattered",
+          props: baseFigures[0].props.map((p: any) => ({
+            ...p,
+            centroid: [
+              (Math.random() - 0.5) * 20,
+              (Math.random() - 0.5) * 20
+            ],
+            angle: Math.random() * Math.PI * 4
+          }))
+        },
+        ...baseFigures
+      ];
 
       // Scene setup
       const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -189,17 +201,17 @@ export const LoadingScreen = () => {
       );
       camera.position.set(0, 0, 25);
 
-      // Lights
-      const ambLight = new THREE.AmbientLight(0xffffff, 0.6);
+      // Lights - Increased intensities for a brighter scene
+      const ambLight = new THREE.AmbientLight(0xffffff, 1.2);
       scene.add(ambLight);
 
-      const spotLight = new THREE.SpotLight(0xffffff, 1000);
+      const spotLight = new THREE.SpotLight(0xffffff, 2000);
       spotLight.position.set(15, 20, 25);
       spotLight.castShadow = true;
       spotLight.shadow.mapSize.set(1024, 1024);
       scene.add(spotLight);
 
-      const fillLight = new THREE.PointLight(accentColor, 500);
+      const fillLight = new THREE.PointLight(accentColor, 800);
       fillLight.position.set(-15, -10, 10);
       scene.add(fillLight);
 
@@ -228,8 +240,8 @@ export const LoadingScreen = () => {
 
         const mat = new THREE.MeshPhysicalMaterial({
           color: PIECE_COLORS[i],
-          roughness: 0.2,
-          metalness: 0.8,
+          roughness: 0.1,
+          metalness: 0.4,
           clearcoat: 1.0,
           clearcoatRoughness: 0.1,
         });
@@ -264,17 +276,31 @@ export const LoadingScreen = () => {
         if (phaseElapsed > CONFIG.HOLD_MS) {
           const rawT = (phaseElapsed - CONFIG.HOLD_MS) / CONFIG.TRANS_MS;
           t = Utils.easeInOutCubic(rawT);
-          jump = Math.sin(t * Math.PI) * 2.5; // Matches figura.html
-          extraRot = Math.sin(t * Math.PI) * 0.4; // Matches figura.html
+          jump = Math.sin(t * Math.PI) * 5.0; 
+          extraRot = Math.sin(t * Math.PI) * 0.6;
+        }
+
+        if (phaseIndex >= figures.length - 1 && phaseElapsed > CONFIG.HOLD_MS * 0.8 && isLoading) {
+           hideLoading();
         }
 
         pieces.forEach((p, i) => {
           const p1 = fromFig.props[i];
           const p2 = toFig.props[i];
 
+          // Radial expansion like in figura.html
+          let expansion = 0;
+          if (phaseElapsed > CONFIG.HOLD_MS) {
+            const rawT = (phaseElapsed - CONFIG.HOLD_MS) / CONFIG.TRANS_MS;
+            expansion = Math.sin(Utils.easeInOutCubic(rawT) * Math.PI) * 1.5;
+          }
+
+          const cx = Utils.lerp(p1.centroid[0], p2.centroid[0], t);
+          const cy = Utils.lerp(p1.centroid[1], p2.centroid[1], t);
+          
           p.group.position.set(
-            Utils.lerp(p1.centroid[0], p2.centroid[0], t),
-            Utils.lerp(p1.centroid[1], p2.centroid[1], t),
+            cx * (1 + expansion),
+            cy * (1 + expansion),
             jump
           );
 
@@ -306,9 +332,10 @@ export const LoadingScreen = () => {
           p.mesh.geometry.translate(0, 0, -CONFIG.EXTRUDE_DEPTH / 2);
         });
 
-        // Static tilt from figura.html
-        group.rotation.y = 0;
-        group.rotation.x = 0.2;
+        // Floating animation like in figura.html
+        group.rotation.y = Math.sin(now * 0.0005) * 0.15;
+        group.rotation.x = 0.2 + Math.cos(now * 0.0004) * 0.1;
+        group.position.y = 2.0 + Math.sin(now * 0.0006) * 0.8;
 
         renderer.render(scene, camera);
         animationId = requestAnimationFrame(animate);
@@ -353,6 +380,7 @@ export const LoadingScreen = () => {
         inset: 0,
         zIndex: 9999,
         background: 'var(--background)',
+        backgroundImage: 'radial-gradient(circle at center, color-mix(in srgb, var(--background), white 10%) 0%, var(--background) 100%)',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
@@ -361,6 +389,48 @@ export const LoadingScreen = () => {
         pointerEvents: 'none'
       }}
       ref={containerRef}
-    />
+    >
+      <style>{`
+        .brand-text {
+          position: absolute;
+          bottom: 60px;
+          left: 50%;
+          transform: translateX(-50%) perspective(1000px) rotateX(15deg);
+          text-align: center;
+          color: var(--foreground);
+          text-transform: uppercase;
+          font-family: 'Inter', sans-serif;
+          font-weight: 900;
+          letter-spacing: -2px;
+          line-height: 0.85;
+          pointer-events: none;
+          user-select: none;
+        }
+        .brand-main {
+          font-size: 3.5rem;
+          display: block;
+          text-shadow: 2px 2px 0px var(--accent), 4px 4px 0px rgba(0,0,0,0.2);
+        }
+        .brand-pro {
+          font-size: 4.5rem;
+          display: block;
+          color: transparent;
+          -webkit-text-stroke: 1.5px var(--foreground);
+          filter: drop-shadow(4px 4px 0px rgba(0,0,0,0.2));
+        }
+        .vignette {
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.4) 100%);
+          pointer-events: none;
+          z-index: 10;
+        }
+      `}</style>
+      <div className="vignette" />
+      <div className="brand-text">
+        <span className="brand-main">TruckParts</span>
+        <span className="brand-pro">Pro</span>
+      </div>
+    </div>
   );
 };

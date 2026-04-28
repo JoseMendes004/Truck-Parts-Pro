@@ -41,14 +41,16 @@ import {
   Sun,
   Moon,
   FileText,
+  MonitorPlay,
 } from "lucide-react"
 import Link from "next/link"
 
 import { ColoresSection } from "./_sections/ColoresSection"
 import { TypografiaSection } from "./_sections/TypografiaSection"
 import { PreviewPanel } from "./_sections/PreviewPanel"
+import { LoadingScreenSection } from "./_sections/LoadingScreenSection"
 
-type ActiveSection = "colors" | "typography" | "inventory" | "invoice"
+type ActiveSection = "colors" | "typography" | "inventory" | "invoice" | "loading"
 
 interface PreviewTheme {
   name: string
@@ -68,17 +70,19 @@ const DEFAULT_PREVIEW_THEME: PreviewTheme = {
 }
 
 const SECTION_LABELS: Record<ActiveSection, { icon: React.ElementType; label: string }> = {
-  colors:     { icon: Palette,   label: "Gestión de Colores" },
-  typography: { icon: Type,      label: "Gestión de Tipografía" },
-  inventory:  { icon: Package,   label: "Gestión de Inventario" },
-  invoice:    { icon: FileText,  label: "Gestión de Factura" },
+  colors:     { icon: Palette,      label: "Gestión de Colores" },
+  typography: { icon: Type,         label: "Gestión de Tipografía" },
+  inventory:  { icon: Package,      label: "Gestión de Inventario" },
+  invoice:    { icon: FileText,     label: "Gestión de Factura" },
+  loading:    { icon: MonitorPlay,  label: "Gestión de Pantalla de Carga" },
 }
 
 const NAV_ITEMS: { key: ActiveSection; icon: React.ElementType; label: string }[] = [
-  { key: "colors",     icon: Palette,  label: "Colores" },
-  { key: "typography", icon: Type,     label: "Tipografía" },
-  { key: "inventory",  icon: Package,  label: "Inventario" },
-  { key: "invoice",    icon: FileText, label: "Factura" },
+  { key: "colors",     icon: Palette,     label: "Colores" },
+  { key: "typography", icon: Type,        label: "Tipografía" },
+  { key: "inventory",  icon: Package,     label: "Inventario" },
+  { key: "invoice",    icon: FileText,    label: "Factura" },
+  { key: "loading",    icon: MonitorPlay, label: "Pantalla de Carga" },
 ]
 
 const THEME_OPTIONS = [
@@ -106,17 +110,11 @@ export default function AdminPage() {
     }
   }, [isAuthenticated, isAdmin, isLoading, router])
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    )
-  }
+  if (isLoading) return null
 
   if (!isAuthenticated || !isAdmin) return null
 
-  const hasPreview = activeSection !== "inventory" && activeSection !== "invoice"
+  const hasPreview = activeSection !== "inventory" && activeSection !== "invoice" && activeSection !== "loading"
   const { icon: SectionIcon, label: sectionLabel } = SECTION_LABELS[activeSection]
 
   return (
@@ -222,6 +220,7 @@ export default function AdminPage() {
                 )}
                 {activeSection === "inventory" && <AdminInventory />}
                 {activeSection === "invoice" && <AdminFactura />}
+                {activeSection === "loading" && <LoadingScreenSection />}
               </div>
 
               {/* Panel de previsualización */}

@@ -20,13 +20,7 @@ export default function DashboardPage() {
     }
   }, [isAuthenticated, isLoading, router])
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    )
-  }
+  if (isLoading) return null
 
   if (!isAuthenticated) {
     return null
