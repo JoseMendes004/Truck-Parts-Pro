@@ -64,6 +64,7 @@ La plataforma incluye:
 | **Personalizacion de Colores** | Control total de colores primarios, acentos, fondo y texto |
 | **Gestion de Tipografia** | Cambio de fuentes para titulos y cuerpo de texto con tamanos |
 | **Vista Previa en Tiempo Real** | Visualiza cambios de tema antes de aplicarlos |
+| **Gestion de Videos** | Subida y configuracion de videos de fondo con subtitulos y audio |
 | **Estadisticas** | Dashboard con graficos de ventas y metricas clave (Recharts) |
 
 ---
@@ -134,6 +135,7 @@ TruckPartsPro/
 │       └── _sections/            # Secciones del admin
 │           ├── ColoresSection.tsx
 │           ├── TypographySection.tsx
+│           ├── VideoSection.tsx          # Gestion de videos multimedia
 │           └── PreviewSection.tsx
 │
 ├── components/                   # Componentes reutilizables
@@ -243,6 +245,11 @@ El panel de administracion (`/admin`) incluye:
 - **Tipografia**: Seleccion de fuentes para titulos y cuerpo con tamanos
 - **Vista previa en tiempo real**: Los cambios se reflejan instantaneamente
 
+### Gestion Multimedia
+- **Videos Promocionales**: Subida y configuracion de videos de fondo
+- **Pistas y Subtitulos**: Soporte para multiples pistas de audio y archivos de subtitulos (.vtt, .srt)
+- **Biblioteca**: Lista de videos guardados con opciones de busqueda y previsualizacion
+
 ---
 
 ## Temas y Personalizacion
@@ -286,6 +293,7 @@ Las variables de tema se gestionan mediante **CSS Custom Properties** y el conte
 | Gestion de Inventario | Completado |
 | Facturacion | Completado |
 | Personalizacion de Temas | Completado |
+| Gestion de Videos Multimedia | Completado |
 | Backend / Base de Datos | En desarrollo |
 | Autenticacion real (JWT) | En desarrollo |
 | Pagos en linea | Planificado |
