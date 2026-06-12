@@ -273,7 +273,7 @@ export function LoadingScreenSection() {
   return (
     <div className="space-y-6">
       {/* Card principal */}
-      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-6">
+      <div className="rounded-2xl border border-border bg-background p-6 shadow-sm space-y-6">
 
         {/* Encabezado */}
         <div className="flex items-center gap-3">

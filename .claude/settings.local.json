@@ -2,7 +2,19 @@
   "permissions": {
     "allow": [
       "Read(//c/Users/Usuario/.claude//**)",
-      "Bash(mkdir -p /c/Users/Usuario/.claude/skills)"
+      "Bash(mkdir -p /c/Users/Usuario/.claude/skills)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\alejo\\\\Documents\\\\Uni\\\\Truck-Parts-Pro\" -Force)",
+      "Bash(Select-Object Name, Mode)",
+      "Bash(Format-List)",
+      "Bash(Select-Object Name)",
+      "Bash(pnpm dev *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "Bash(npx playwright *)",
+      "Read(//c/Users/alejo/.claude/**)",
+      "Bash(node -e \"require\\('sharp'\\); console.log\\('sharp ok'\\)\")",
+      "Bash(node -e ' *)",
+      "Bash(npx tsc *)",
+      "Bash(pnpm next *)"
     ]
   }
 }

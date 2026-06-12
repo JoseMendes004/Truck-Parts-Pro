@@ -29,12 +29,22 @@ interface CustomFont {
   name: string
   fontFamily: string
   dataUrl: string
+  headingSize?: string
+  bodySize?: string
 }
 
 interface ModeThemeAssignment {
   light: string
   dark: string
   colorblind: string
+}
+
+interface VideoMetadata {
+  id: string
+  name: string
+  url: string
+  subtitles: string[]
+  audioTracks: string[]
 }
 
 interface ThemeContextType {
@@ -61,8 +71,14 @@ interface ThemeContextType {
   customFonts: CustomFont[]
   addCustomFont: (font: CustomFont) => void
   removeCustomFont: (id: string) => void
+  updateCustomFont: (id: string, updates: Partial<CustomFont>) => void
   modeThemeAssignment: ModeThemeAssignment
   setModeThemeAssignment: (mode: ThemeMode, themeId: string) => void
+  videoData: VideoMetadata
+  setVideoData: (data: VideoMetadata) => void
+  videoList: VideoMetadata[]
+  addVideoToList: (video: VideoMetadata) => void
+  removeVideoFromList: (id: string) => void
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
@@ -145,6 +161,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     dark: "default-dark",
     colorblind: "default-colorblind",
   })
+  const [videoData, setVideoDataState] = useState<VideoMetadata>({
+    id: "default",
+    name: "Video de Presentación",
+    url: "/camion.mp4",
+    subtitles: [],
+    audioTracks: [],
+  })
+  const [videoList, setVideoListState] = useState<VideoMetadata[]>([])
+  const [hiddenDefaultIds, setHiddenDefaultIds] = useState<string[]>([])
 
   // Load custom fonts into the document
   const loadCustomFont = (font: CustomFont) => {
@@ -182,6 +207,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         // ignore
       }
     }
+    let hiddenIds: string[] = []
+    const savedHiddenDefaults = localStorage.getItem("truck-parts-hidden-defaults")
+    if (savedHiddenDefaults) {
+      try { hiddenIds = JSON.parse(savedHiddenDefaults) } catch {}
+    }
+    setHiddenDefaultIds(hiddenIds)
+
     if (savedCustomThemes) {
       try {
         const parsed = JSON.parse(savedCustomThemes)
@@ -200,13 +232,16 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
           }
           return t
         })
-        setCustomThemes([defaultLightTheme, defaultDarkTheme, defaultColorblindTheme, ...migrated.filter((t: any) => !t.isDefault)])
+        const visibleDefaults = [defaultLightTheme, defaultDarkTheme, defaultColorblindTheme].filter(t => !hiddenIds.includes(t.id))
+        setCustomThemes([...visibleDefaults, ...migrated.filter((t: any) => !t.isDefault)])
       } catch {
         // Ignore parse errors
-        setCustomThemes([defaultLightTheme, defaultDarkTheme, defaultColorblindTheme])
+        const visibleDefaults = [defaultLightTheme, defaultDarkTheme, defaultColorblindTheme].filter(t => !hiddenIds.includes(t.id))
+        setCustomThemes(visibleDefaults)
       }
     } else {
-      setCustomThemes([defaultLightTheme, defaultDarkTheme, defaultColorblindTheme])
+      const visibleDefaults = [defaultLightTheme, defaultDarkTheme, defaultColorblindTheme].filter(t => !hiddenIds.includes(t.id))
+      setCustomThemes(visibleDefaults)
     }
     if (savedCustomFonts) {
       try {
@@ -224,6 +259,23 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         setModeThemeAssignmentState(JSON.parse(savedModeAssignment))
       } catch {
         // Ignore parse errors
+      }
+    }
+
+    const savedVideoData = localStorage.getItem("truck-parts-video-data")
+    if (savedVideoData) {
+      try {
+        setVideoDataState(JSON.parse(savedVideoData))
+      } catch {
+        // Ignore
+      }
+    }
+    const savedVideoList = localStorage.getItem("truck-parts-video-list")
+    if (savedVideoList) {
+      try {
+        setVideoListState(JSON.parse(savedVideoList))
+      } catch {
+        // Ignore
       }
     }
   }, [])
@@ -285,9 +337,25 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const removeCustomTheme = (id: string) => {
     const updatedThemes = customThemes.filter((t) => t.id !== id)
     setCustomThemes(updatedThemes)
-    const customOnly = updatedThemes.filter(
-      (t) => !t.id.startsWith("default-")
-    )
+    if (id.startsWith("default-")) {
+      const updatedHidden = [...hiddenDefaultIds, id]
+      setHiddenDefaultIds(updatedHidden)
+      localStorage.setItem("truck-parts-hidden-defaults", JSON.stringify(updatedHidden))
+    }
+    // Clear any mode assignments pointing to the deleted theme
+    const updatedAssignment = { ...modeThemeAssignment }
+    let assignmentChanged = false
+    ;(Object.keys(updatedAssignment) as ThemeMode[]).forEach((mode) => {
+      if (updatedAssignment[mode] === id) {
+        updatedAssignment[mode] = ""
+        assignmentChanged = true
+      }
+    })
+    if (assignmentChanged) {
+      setModeThemeAssignmentState(updatedAssignment)
+      localStorage.setItem("truck-parts-mode-assignment", JSON.stringify(updatedAssignment))
+    }
+    const customOnly = updatedThemes.filter((t) => !t.id.startsWith("default-"))
     localStorage.setItem("truck-parts-custom-themes", JSON.stringify(customOnly))
   }
 
@@ -355,6 +423,49 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("truck-parts-custom-fonts", JSON.stringify(updatedFonts))
   }
 
+  const updateCustomFont = (id: string, updates: Partial<CustomFont>) => {
+    const fontToUpdate = customFonts.find(f => f.id === id)
+    if (!fontToUpdate) return
+
+    const updatedFont = { ...fontToUpdate, ...updates }
+
+    // Remove old @font-face style and reload with new values
+    const existingStyle = document.getElementById(`custom-font-${id}`)
+    if (existingStyle) existingStyle.remove()
+    loadCustomFont(updatedFont)
+
+    // Update globalTypography if the fontFamily or sizes changed
+    setGlobalTypographyState(prev => {
+      let next = { ...prev }
+      let changed = false
+      if (prev.headingFont === fontToUpdate.fontFamily) {
+        next.headingFont = updatedFont.fontFamily
+        if (updates.headingSize !== undefined) {
+          next.headingSize = updates.headingSize
+          changed = true
+        }
+        if (fontToUpdate.fontFamily !== updatedFont.fontFamily) {
+          changed = true
+        }
+      }
+      if (prev.bodyFont === fontToUpdate.fontFamily) {
+        next.bodyFont = updatedFont.fontFamily
+        if (updates.bodySize !== undefined) {
+          next.bodySize = updates.bodySize
+          changed = true
+        }
+        if (fontToUpdate.fontFamily !== updatedFont.fontFamily) {
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+
+    const updatedFonts = customFonts.map(f => f.id === id ? updatedFont : f)
+    setCustomFonts(updatedFonts)
+    localStorage.setItem("truck-parts-custom-fonts", JSON.stringify(updatedFonts))
+  }
+
   const removeCustomFont = (id: string) => {
     const fontToRemove = customFonts.find(f => f.id === id)
     if (fontToRemove) {
@@ -387,6 +498,27 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const setVideoData = (data: VideoMetadata) => {
+    setVideoDataState(data)
+    localStorage.setItem("truck-parts-video-data", JSON.stringify(data))
+  }
+
+  const addVideoToList = (video: VideoMetadata) => {
+    setVideoListState(prev => {
+      const updated = [video, ...prev.filter(v => v.id !== video.id)]
+      localStorage.setItem("truck-parts-video-list", JSON.stringify(updated))
+      return updated
+    })
+  }
+
+  const removeVideoFromList = (id: string) => {
+    setVideoListState(prev => {
+      const updated = prev.filter(v => v.id !== id)
+      localStorage.setItem("truck-parts-video-list", JSON.stringify(updated))
+      return updated
+    })
+  }
+
   return (
     <ThemeContext.Provider
       value={{
@@ -403,8 +535,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         customFonts,
         addCustomFont,
         removeCustomFont,
+        updateCustomFont,
         modeThemeAssignment,
         setModeThemeAssignment,
+        videoData,
+        setVideoData,
+        videoList,
+        addVideoToList,
+        removeVideoFromList,
       }}
     >
       {children}

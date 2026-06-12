@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Player Pro</title>
+    <!-- Iconos Lucide -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: white;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 40px 20px;
+            gap: 40px;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 900px;
+            background: #000;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+            font-family: Arial, sans-serif;
+        }
+
+        video {
+            width: 100%;
+            display: block;
+        }
+
+        /* Top controls (Picture in Picture, Next) */
+        .top-controls {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 5px;
+            z-index: 10;
+        }
+
+        .top-btn {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+        .top-btn svg { width: 16px; height: 16px; opacity: 0.8; }
+
+        /* Barra de Controles Inferior Completa */
+        .controls-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+            padding: 10px 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            transition: opacity 0.3s;
+        }
+
+        /* Progress Bar */
+        .progress-track {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            border-radius: 2px;
+            position: relative;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #6366f1; /* Azul igual a la imagen */
+            width: 0%;
+            border-radius: 2px;
+        }
+
+        /* Fila de controles */
+        .controls-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .controls-left, .controls-right {
+            display: flex;
+            align-items: center;
+            gap: 20px; /* Separación perfecta entre iconos */
+        }
+
+        .icon-btn {
+            background: none;
+            border: none;
+            color: white;
+            padding: 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.85;
+            transition: opacity 0.2s;
+        }
+        .icon-btn:hover { opacity: 1; }
+        .icon-btn svg { width: 22px; height: 22px; stroke-width: 1.5; }
+
+        .time-display {
+            font-size: 13px;
+            font-weight: 500;
+            opacity: 0.9;
+        }
+
+        .volume-slider {
+            width: 50px;
+            height: 4px;
+            background: white;
+            border-radius: 2px;
+            margin-left: -5px; /* Pegado al icono de volumen como en la imagen */
+        }
+
+        /* Componentes Base Formulario y Botones */
+        .form-container {
+            background: rgba(30, 41, 59, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 30px;
+            width: 100%;
+            max-width: 700px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+            box-sizing: border-box;
+        }
+
+        .form-header {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-header svg {
+            color: #6366f1;
+            width: 24px;
+            height: 24px;
+        }
+
+        .form-input {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+        }
+
+        .form-input:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+
+        .form-input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .form-input[type="file"] {
+            padding: 9px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .form-input[type="file"]::file-selector-button {
+            background: #334155;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            margin-right: 12px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .form-input[type="file"]::file-selector-button:hover {
+            background: #475569;
+        }
+
+        .form-btn {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .form-btn svg { width: 18px; height: 18px; }
+
+        .form-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+        }
+
+        .form-btn:active { transform: translateY(0); }
+
+        /* Lista de Videos */
+        .playlist-section {
+            width: 100%;
+            max-width: 900px;
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 16px;
+            padding: 25px 30px;
+            box-sizing: border-box;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .playlist-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 15px;
+        }
+
+        .playlist-header h2 {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 500;
+        }
+
+        .video-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .video-item {
+            background: rgba(15, 23, 42, 0.6);
+            padding: 15px 20px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .video-item:hover {
+            background: rgba(30, 41, 59, 0.8);
+            border-color: rgba(99, 102, 241, 0.4);
+        }
+
+        .video-item svg { color: #6366f1; }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            padding: 20px;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal-content {
+            transform: translateY(20px);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: translateY(0);
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.6);
+            cursor: pointer;
+            margin-left: auto;
+            padding: 5px;
+            display: flex;
+        }
+        .close-btn:hover { color: white; }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .input-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .input-wrapper label {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.7);
+            font-weight: 500;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 16px;
+        }
+
+        /* Menú Desplegable (Subtítulos) */
+        .dropdown-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .dropdown-menu {
+            position: absolute;
+            bottom: calc(100% + 15px);
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 5px 0;
+            min-width: 120px;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            z-index: 50;
+            backdrop-filter: blur(10px);
+        }
+
+        .dropdown-menu.show {
+            opacity: 1;
+            pointer-events: all;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .dropdown-item {
+            padding: 10px 15px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.2s;
+            color: white;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .dropdown-item:hover {
+            background: rgba(99, 102, 241, 0.3);
+        }
+
+        .dropdown-item.active {
+            color: #6366f1;
+            font-weight: 600;
+        }
+
+        @media (max-width: 600px) {
+            .form-grid { grid-template-columns: 1fr; }
+            .playlist-header {
+                flex-direction: column;
+                gap: 15px;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="video-container" id="video-container">
+        
+        <!-- Botones Flotantes Superiores -->
+        <div class="top-controls">
+            <button class="top-btn"><i data-lucide="external-link"></i></button>
+            <button class="top-btn"><i data-lucide="skip-forward"></i></button>
+        </div>
+
+        <!-- Video sin la etiqueta 'controls' nativa -->
+        <video id="main-video" src="istockphoto-1443871954-640_adpp_is.mp4"></video>
+
+        <!-- Barra de Controles Personalizada y Perfectamente Alineada -->
+        <div class="controls-bar">
+            <div class="progress-track" id="progress-track">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <div class="controls-row">
+                <div class="controls-left">
+                    <button class="icon-btn" id="play-pause-btn"><i data-lucide="play" id="play-icon"></i></button>
+                    <div class="time-display"><span id="current-time">0:00</span> / <span id="duration">0:17</span></div>
+                </div>
+                <div class="controls-right">
+                    <button class="icon-btn" id="mute-btn"><i data-lucide="volume-2" id="volume-icon"></i></button>
+                    
+                    <div class="volume-slider"></div> <!-- Barra blanca de volumen -->
+                    
+                    <!-- Botones requeridos integrados nativamente en la barra -->
+                    <div class="dropdown-container">
+                        <button class="icon-btn" id="audio-track-btn" style="cursor: not-allowed; opacity: 0.5; pointer-events: none;"><i data-lucide="music"></i></button>
+                        <div class="dropdown-menu" id="audio-menu">
+                            <div class="dropdown-item active" data-track="0">Original</div>
+                            <div class="dropdown-item" data-track="1" style="display:none;">Pista 1</div>
+                            <div class="dropdown-item" data-track="2" style="display:none;">Pista 2</div>
+                        </div>
+                    </div>
+                    <div class="dropdown-container">
+                        <button class="icon-btn" id="captions-btn" style="cursor: not-allowed; opacity: 0.5; pointer-events: none;"><i data-lucide="captions"></i></button>
+                        <div class="dropdown-menu" id="captions-menu">
+                            <div class="dropdown-item active" data-track="0">Apagado</div>
+                            <div class="dropdown-item" data-track="1" style="display:none;">Subtítulo 1</div>
+                            <div class="dropdown-item" data-track="2" style="display:none;">Subtítulo 2</div>
+                        </div>
+                    </div>
+                    
+                    <button class="icon-btn" id="fullscreen-btn"><i data-lucide="maximize"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sección de Videos y Botón Agregar -->
+    <div class="playlist-section">
+        <div class="playlist-header">
+            <h2>Videos Disponibles</h2>
+            <button class="form-btn" id="open-modal-btn">
+                <i data-lucide="plus"></i>
+                Agregar video nuevo
+            </button>
+        </div>
+        <div class="video-list" id="video-list">
+            <!-- Videos por defecto -->
+            <div class="video-item">
+                <i data-lucide="play-circle"></i>
+                <span>Video Principal</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Formulario -->
+    <div class="modal-overlay" id="video-modal">
+        <div class="form-container modal-content">
+            <div class="form-header">
+                <i data-lucide="video" id="modal-icon"></i>
+                <span id="modal-title">Agregar Nuevo Video</span>
+                <button class="close-btn" id="close-modal-btn" type="button"><i data-lucide="x"></i></button>
+            </div>
+            <form id="add-video-form" onsubmit="event.preventDefault(); saveVideo();">
+                <div class="form-grid">
+                    <div class="input-wrapper" style="grid-column: 1 / -1;">
+                        <label>Nombre del video</label>
+                        <input type="text" id="vid-name" class="form-input" placeholder="Ej. Presentación del Proyecto" required>
+                    </div>
+                    <div class="input-wrapper" style="grid-column: 1 / -1;">
+                        <label>Archivo de Video (Local o URL)</label>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <input type="text" id="vid-url-manual" class="form-input" placeholder="URL Manual (Ej: /camion.mp4 o link de internet)">
+                            <div style="display: flex; align-items: center; gap: 10px; opacity: 0.6; font-size: 0.75rem;">
+                                <span>o sube un archivo:</span>
+                                <input type="file" id="vid-file" class="form-input" accept="video/*" style="flex: 1;">
+                            </div>
+                        </div>
+                        <p id="blob-warning" style="display: none; color: #fbbf24; font-size: 11px; margin-top: 5px; font-style: italic;">
+                            ⚠️ Nota: Los archivos subidos desde el PC son temporales. Usa la URL Manual para archivos en 'public'.
+                        </p>
+                    </div>
+                    <div class="input-wrapper">
+                        <label>Subtítulo 1</label>
+                        <input type="file" id="sub-1" class="form-input" accept=".vtt,.srt">
+                    </div>
+                    <div class="input-wrapper">
+                        <label>Subtítulo 2</label>
+                        <input type="file" id="sub-2" class="form-input" accept=".vtt,.srt">
+                    </div>
+                    <div class="input-wrapper">
+                        <label>Pista de Audio 1</label>
+                        <input type="file" id="audio-1" class="form-input" accept="audio/*">
+                    </div>
+                    <div class="input-wrapper">
+                        <label>Pista de Audio 2</label>
+                        <input type="file" id="audio-2" class="form-input" accept="audio/*">
+                    </div>
+                </div>
+                <button type="submit" class="form-btn submit-btn">
+                    <i data-lucide="upload" id="submit-icon"></i>
+                    <span id="submit-text">Subir Video</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        const video = document.getElementById('main-video');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const playIcon = document.getElementById('play-icon');
+        const progressFill = document.getElementById('progress-fill');
+        const progressTrack = document.getElementById('progress-track');
+        const currentTimeEl = document.getElementById('current-time');
+        const container = document.getElementById('video-container');
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+
+        // Fallback si el video falla
+        video.addEventListener('error', () => {
+            console.warn("Video failed to load, falling back to default...");
+            if (video.getAttribute('src') !== 'istockphoto-1443871954-640_adpp_is.mp4') {
+                video.src = 'istockphoto-1443871954-640_adpp_is.mp4';
+                video.load();
+                video.play().catch(() => {});
+            }
+        });
+
+        // Limpiar URL manual si se sube un archivo
+        document.getElementById('vid-file').addEventListener('change', function() {
+            if (this.files.length > 0) {
+                document.getElementById('vid-url-manual').value = "";
+                document.getElementById('blob-warning').style.display = 'block';
+            }
+        });
+
+        // Play y Pausa
+        function togglePlay() {
+            if (video.paused) {
+                video.play();
+                playIcon.setAttribute('data-lucide', 'pause');
+            } else {
+                video.pause();
+                playIcon.setAttribute('data-lucide', 'play');
+            }
+            lucide.createIcons();
+        }
+
+        playPauseBtn.addEventListener('click', togglePlay);
+        video.addEventListener('click', togglePlay);
+
+        // Barra de progreso y tiempo
+        video.addEventListener('timeupdate', () => {
+            const percent = (video.currentTime / video.duration) * 100;
+            progressFill.style.width = `${percent}%`;
+            
+            let currentMins = Math.floor(video.currentTime / 60);
+            let currentSecs = Math.floor(video.currentTime % 60);
+            if (currentSecs < 10) currentSecs = '0' + currentSecs;
+            currentTimeEl.textContent = `${currentMins}:${currentSecs}`;
+        });
+
+        // Pantalla completa
+        fullscreenBtn.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                container.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        });
+
+        // --- Lógica de Pistas de Audio Externas (Menú) ---
+        const externalAudio = new Audio();
+        let currentAudioTracks = [];
+        let currentAudioIndex = 0;
+        const audioTrackBtn = document.getElementById('audio-track-btn');
+        const audioMenu = document.getElementById('audio-menu');
+        const audioDropdownItems = audioMenu.querySelectorAll('.dropdown-item');
+
+        audioTrackBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (currentAudioTracks.length > 0) {
+                audioMenu.classList.toggle('show');
+            }
+        });
+
+        // Ocultar menú al hacer click fuera
+        document.addEventListener('click', (e) => {
+            if (!audioMenu.contains(e.target) && e.target !== audioTrackBtn) {
+                audioMenu.classList.remove('show');
+            }
+        });
+
+        audioDropdownItems.forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const index = parseInt(item.getAttribute('data-track'));
+                currentAudioIndex = index;
+
+                // Actualizar UI del menú
+                audioDropdownItems.forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+
+                if (currentAudioIndex === 0) {
+                    // Audio original del video
+                    video.muted = false;
+                    externalAudio.pause();
+                    audioTrackBtn.style.color = 'white';
+                } else {
+                    // Pista de audio externa
+                    video.muted = true;
+                    externalAudio.src = currentAudioTracks[currentAudioIndex - 1];
+                    externalAudio.currentTime = video.currentTime;
+                    if (!video.paused) externalAudio.play();
+                    audioTrackBtn.style.color = '#6366f1';
+                }
+
+                audioMenu.classList.remove('show');
+            });
+        });
+
+        // Sincronizar audio externo con el video
+        video.addEventListener('play', () => { if (currentAudioIndex > 0) externalAudio.play(); });
+        video.addEventListener('pause', () => { if (currentAudioIndex > 0) externalAudio.pause(); });
+        video.addEventListener('seeked', () => { if (currentAudioIndex > 0) externalAudio.currentTime = video.currentTime; });
+        video.addEventListener('waiting', () => { if (currentAudioIndex > 0) externalAudio.pause(); });
+        video.addEventListener('playing', () => { if (currentAudioIndex > 0) externalAudio.play(); });
+
+        // Función para resetear el estado de audio al cambiar de video
+        function resetAudioTracks(tracks = []) {
+            currentAudioTracks = tracks;
+            currentAudioIndex = 0;
+            video.muted = false;
+            externalAudio.pause();
+            audioTrackBtn.style.color = 'white';
+            
+            // Limpiar UI del menú
+            audioDropdownItems.forEach(i => {
+                i.classList.remove('active');
+                if(i.getAttribute('data-track') === "0") {
+                    i.classList.add('active');
+                } else {
+                    i.style.display = 'none';
+                }
+            });
+            audioMenu.classList.remove('show');
+
+            // Mostrar la opción en el menú
+            tracks.forEach((trackUrl, index) => {
+                const menuItem = audioMenu.querySelector(`.dropdown-item[data-track="${index + 1}"]`);
+                if(menuItem) menuItem.style.display = 'block';
+            });
+            
+            if (currentAudioTracks.length > 0) {
+                audioTrackBtn.style.opacity = '1';
+                audioTrackBtn.style.pointerEvents = 'all';
+                audioTrackBtn.style.cursor = 'pointer';
+            } else {
+                audioTrackBtn.style.opacity = '0.5';
+                audioTrackBtn.style.pointerEvents = 'none';
+                audioTrackBtn.style.cursor = 'not-allowed';
+            }
+        }
+
+        // --- Lógica de Subtítulos (Menú) ---
+        let currentSubTracks = [];
+        let currentSubIndex = 0; // 0 = apagado
+        const captionsBtn = document.getElementById('captions-btn');
+        const captionsMenu = document.getElementById('captions-menu');
+        const dropdownItems = captionsMenu.querySelectorAll('.dropdown-item');
+
+        captionsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (currentSubTracks.length > 0) {
+                captionsMenu.classList.toggle('show');
+            }
+        });
+
+        // Ocultar menú al hacer click fuera
+        document.addEventListener('click', (e) => {
+            if (!captionsMenu.contains(e.target) && e.target !== captionsBtn) {
+                captionsMenu.classList.remove('show');
+            }
+        });
+
+        dropdownItems.forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const index = parseInt(item.getAttribute('data-track'));
+                currentSubIndex = index;
+
+                // Actualizar UI del menú
+                dropdownItems.forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+
+                // Apagar todas las pistas primero
+                for (let i = 0; i < video.textTracks.length; i++) {
+                    video.textTracks[i].mode = 'hidden';
+                }
+
+                if (currentSubIndex === 0) {
+                    captionsBtn.style.color = 'white';
+                } else {
+                    const trackIndex = currentSubIndex - 1;
+                    if (video.textTracks[trackIndex]) {
+                        video.textTracks[trackIndex].mode = 'showing';
+                    }
+                    captionsBtn.style.color = '#6366f1';
+                }
+
+                captionsMenu.classList.remove('show');
+            });
+        });
+
+        function resetSubTracks(tracks = []) {
+            currentSubTracks = tracks;
+            currentSubIndex = 0;
+            
+            // Limpiar UI del menú
+            dropdownItems.forEach(i => {
+                i.classList.remove('active');
+                if(i.getAttribute('data-track') === "0") {
+                    i.classList.add('active');
+                } else {
+                    i.style.display = 'none';
+                }
+            });
+            captionsMenu.classList.remove('show');
+
+            // Limpiar pistas anteriores del DOM
+            video.querySelectorAll('track').forEach(t => t.remove());
+            captionsBtn.style.color = 'white';
+            
+            // Precargar las nuevas pistas en el elemento de video
+            tracks.forEach((trackUrl, index) => {
+                const track = document.createElement('track');
+                track.kind = 'subtitles';
+                track.label = `Subtítulo ${index + 1}`;
+                track.srclang = 'es';
+                track.src = trackUrl;
+                video.appendChild(track);
+
+                // Mostrar la opción en el menú
+                const menuItem = captionsMenu.querySelector(`.dropdown-item[data-track="${index + 1}"]`);
+                if(menuItem) menuItem.style.display = 'block';
+            });
+            
+            // Asegurarnos de que estén ocultos inicialmente
+            setTimeout(() => {
+                for (let i = 0; i < video.textTracks.length; i++) {
+                    video.textTracks[i].mode = 'hidden';
+                }
+            }, 50);
+
+            if (currentSubTracks.length > 0) {
+                captionsBtn.style.opacity = '1';
+                captionsBtn.style.pointerEvents = 'all';
+                captionsBtn.style.cursor = 'pointer';
+            } else {
+                captionsBtn.style.opacity = '0.5';
+                captionsBtn.style.pointerEvents = 'none';
+                captionsBtn.style.cursor = 'not-allowed';
+            }
+        }
+
+        // Lógica del Modal y Lista de Videos
+        const modal = document.getElementById('video-modal');
+        const openModalBtn = document.getElementById('open-modal-btn');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const videoList = document.getElementById('video-list');
+        
+        // Listener para limpiar URL manual y mostrar advertencia
+        document.getElementById('vid-file').addEventListener('change', function() {
+            if (this.files.length > 0) {
+                document.getElementById('vid-url-manual').value = "";
+                document.getElementById('blob-warning').style.display = 'block';
+            } else {
+                document.getElementById('blob-warning').style.display = 'none';
+            }
+        });
+
+        let editingItem = null;
+
+        function openModalForNew() {
+            editingItem = null;
+            document.getElementById('add-video-form').reset();
+            document.getElementById('vid-file').required = true;
+            document.getElementById('modal-title').textContent = 'Agregar Nuevo Video';
+            document.getElementById('modal-icon').setAttribute('data-lucide', 'video');
+            document.getElementById('submit-text').textContent = 'Subir Video';
+            document.getElementById('submit-icon').setAttribute('data-lucide', 'upload');
+            lucide.createIcons();
+            modal.classList.add('active');
+            document.getElementById('blob-warning').style.display = 'none';
+        }
+
+        openModalBtn.addEventListener('click', openModalForNew);
+
+        closeModalBtn.addEventListener('click', () => {
+            modal.classList.remove('active');
+        });
+        
+        // Cerrar modal al hacer click fuera
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.classList.remove('active');
+        });
+
+        // Configurar video por defecto en la lista
+        const defaultVideoItem = document.querySelector('#video-list .video-item');
+        if (defaultVideoItem) {
+            defaultVideoItem.addEventListener('click', () => {
+                resetAudioTracks([]);
+                resetSubTracks([]);
+                video.src = 'istockphoto-1443871954-640_adpp_is.mp4';
+                video.play().then(() => {
+                    playIcon.setAttribute('data-lucide', 'pause');
+                    lucide.createIcons();
+                }).catch(err => console.error("Error al reproducir:", err));
+            });
+        }
+
+        // Guardar o Actualizar video en la lista
+        function saveVideo() {
+            const nameInput = document.getElementById('vid-name');
+            const fileInput = document.getElementById('vid-file');
+            const audio1Input = document.getElementById('audio-1');
+            const audio2Input = document.getElementById('audio-2');
+            const sub1Input = document.getElementById('sub-1');
+            const sub2Input = document.getElementById('sub-2');
+
+            const videoName = nameInput.value.trim();
+            
+            if (!videoName) return;
+
+            // Conservar URLs anteriores si estamos editando y no se ha subido un archivo nuevo
+            let fileUrl = editingItem ? editingItem.videoData.fileUrl : null;
+            let a1Url = editingItem ? editingItem.videoData.rawAudio1 : null;
+            let a2Url = editingItem ? editingItem.videoData.rawAudio2 : null;
+            let s1Url = editingItem ? editingItem.videoData.rawSub1 : null;
+            let s2Url = editingItem ? editingItem.videoData.rawSub2 : null;
+
+            if (fileInput.files[0]) {
+                fileUrl = URL.createObjectURL(fileInput.files[0]);
+            } else {
+                fileUrl = document.getElementById('vid-url-manual').value.trim() || fileUrl;
+            }
+            
+            if (audio1Input.files[0]) a1Url = URL.createObjectURL(audio1Input.files[0]);
+            if (audio2Input.files[0]) a2Url = URL.createObjectURL(audio2Input.files[0]);
+            if (sub1Input.files[0]) s1Url = URL.createObjectURL(sub1Input.files[0]);
+            if (sub2Input.files[0]) s2Url = URL.createObjectURL(sub2Input.files[0]);
+
+            const itemAudioTracks = [a1Url, a2Url].filter(u => u !== null && u !== undefined);
+            const itemSubTracks = [s1Url, s2Url].filter(u => u !== null && u !== undefined);
+
+            const videoData = { 
+                fileUrl, 
+                itemAudioTracks, 
+                itemSubTracks,
+                rawAudio1: a1Url,
+                rawAudio2: a2Url,
+                rawSub1: s1Url,
+                rawSub2: s2Url
+            };
+
+            if (editingItem) {
+                // Actualizar item existente
+                editingItem.querySelector('.video-title').textContent = videoName;
+                editingItem.videoData = videoData;
+            } else {
+                if (!fileUrl) return; // Requiere video para crear nuevo
+
+                // Crear nuevo elemento en la lista
+                const newItem = document.createElement('div');
+                newItem.className = 'video-item';
+                newItem.innerHTML = `
+                    <div class="video-info" style="display: flex; align-items: center; gap: 15px; flex: 1;">
+                        <i data-lucide="play-circle"></i>
+                        <span class="video-title">${videoName}</span>
+                    </div>
+                    <button class="edit-btn" style="background: none; border: none; color: rgba(255,255,255,0.5); cursor: pointer; transition: color 0.2s;" title="Editar"><i data-lucide="edit-2"></i></button>
+                `;
+
+                newItem.videoData = videoData;
+
+                // Añadir evento para reproducir el video (al clickar la info)
+                newItem.querySelector('.video-info').addEventListener('click', () => {
+                    resetAudioTracks(newItem.videoData.itemAudioTracks);
+                    resetSubTracks(newItem.videoData.itemSubTracks);
+                    video.src = newItem.videoData.fileUrl;
+                    video.play().then(() => {
+                        playIcon.setAttribute('data-lucide', 'pause');
+                        lucide.createIcons();
+                    }).catch(err => {
+                        console.error("Error al reproducir el video:", err);
+                        alert("Hubo un problema al reproducir este video.");
+                    });
+                });
+
+                // Añadir evento para editar el video (al clickar el botón de editar)
+                newItem.querySelector('.edit-btn').addEventListener('click', (e) => {
+                    e.stopPropagation(); // Evitar que se reproduzca el video
+                    editingItem = newItem;
+                    document.getElementById('add-video-form').reset();
+                    document.getElementById('vid-name').value = newItem.querySelector('.video-title').textContent;
+                    document.getElementById('vid-file').required = false; // No es obligatorio subir nuevo video
+                    
+                    document.getElementById('modal-title').textContent = 'Editar Video';
+                    document.getElementById('modal-icon').setAttribute('data-lucide', 'edit');
+                    document.getElementById('submit-text').textContent = 'Guardar Cambios';
+                    document.getElementById('submit-icon').setAttribute('data-lucide', 'save');
+                    
+                    lucide.createIcons();
+                    modal.classList.add('active');
+                });
+                
+                // Efectos hover botón editar
+                newItem.querySelector('.edit-btn').addEventListener('mouseover', function() { this.style.color = 'white'; });
+                newItem.querySelector('.edit-btn').addEventListener('mouseout', function() { this.style.color = 'rgba(255,255,255,0.5)'; });
+
+                videoList.appendChild(newItem);
+            }
+            
+            // Actualizar iconos y limpiar
+            lucide.createIcons();
+            document.getElementById('add-video-form').reset();
+            modal.classList.remove('active');
+        }
+    </script>
+</body>
+</html>

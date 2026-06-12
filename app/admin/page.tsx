@@ -42,6 +42,7 @@ import {
   Moon,
   FileText,
   MonitorPlay,
+  Video,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -49,8 +50,9 @@ import { ColoresSection } from "./_sections/ColoresSection"
 import { TypografiaSection } from "./_sections/TypografiaSection"
 import { PreviewPanel } from "./_sections/PreviewPanel"
 import { LoadingScreenSection } from "./_sections/LoadingScreenSection"
+import { VideoSection } from "./_sections/VideoSection"
 
-type ActiveSection = "colors" | "typography" | "inventory" | "invoice" | "loading"
+type ActiveSection = "colors" | "typography" | "inventory" | "invoice" | "loading" | "video"
 
 interface PreviewTheme {
   name: string
@@ -75,6 +77,7 @@ const SECTION_LABELS: Record<ActiveSection, { icon: React.ElementType; label: st
   inventory:  { icon: Package,      label: "Gestión de Inventario" },
   invoice:    { icon: FileText,     label: "Gestión de Factura" },
   loading:    { icon: MonitorPlay,  label: "Gestión de Pantalla de Carga" },
+  video:      { icon: Video,        label: "Gestión de Video" },
 }
 
 const NAV_ITEMS: { key: ActiveSection; icon: React.ElementType; label: string }[] = [
@@ -83,6 +86,7 @@ const NAV_ITEMS: { key: ActiveSection; icon: React.ElementType; label: string }[
   { key: "inventory",  icon: Package,     label: "Inventario" },
   { key: "invoice",    icon: FileText,    label: "Factura" },
   { key: "loading",    icon: MonitorPlay, label: "Pantalla de Carga" },
+  { key: "video",      icon: Video,       label: "Video" },
 ]
 
 const THEME_OPTIONS = [
@@ -114,7 +118,7 @@ export default function AdminPage() {
 
   if (!isAuthenticated || !isAdmin) return null
 
-  const hasPreview = activeSection !== "inventory" && activeSection !== "invoice" && activeSection !== "loading"
+  const hasPreview = activeSection !== "inventory" && activeSection !== "invoice" && activeSection !== "loading" && activeSection !== "video"
   const { icon: SectionIcon, label: sectionLabel } = SECTION_LABELS[activeSection]
 
   return (
@@ -221,6 +225,7 @@ export default function AdminPage() {
                 {activeSection === "inventory" && <AdminInventory />}
                 {activeSection === "invoice" && <AdminFactura />}
                 {activeSection === "loading" && <LoadingScreenSection />}
+                {activeSection === "video" && <VideoSection />}
               </div>
 
               {/* Panel de previsualización */}

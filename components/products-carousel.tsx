@@ -165,7 +165,7 @@ export const staticProducts = [
     originalPrice: null,
     rating: 4.9,
     reviews: 89,
-    image: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?q=80&w=800",
+    image: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?q=80&w=600&h=600&fit=crop",
     badge: "Premium",
   },
   {
@@ -176,7 +176,7 @@ export const staticProducts = [
     originalPrice: 280.00,
     rating: 4.7,
     reviews: 56,
-    image: "https://images.unsplash.com/photo-1635437536607-b85ad9cd30bc?q=80&w=800",
+    image: "https://images.unsplash.com/photo-1635437536607-b85ad9cd30bc?q=80&w=600&h=600&fit=crop",
     badge: "En Stock",
   },
   {
@@ -198,7 +198,7 @@ export const staticProducts = [
     originalPrice: 350.00,
     rating: 4.8,
     reviews: 102,
-    image: "https://images.unsplash.com/photo-1601053151838-890cae2540b0?q=80&w=800",
+    image: "https://images.unsplash.com/photo-1601053151838-890cae2540b0?q=80&w=600&h=600&fit=crop",
     badge: "Premium",
   },
   {
@@ -220,7 +220,7 @@ export const staticProducts = [
     originalPrice: 1050.00,
     rating: 4.9,
     reviews: 45,
-    image: "https://images.unsplash.com/photo-1600712242805-5f996748fd99?q=80&w=800",
+    image: "https://images.unsplash.com/photo-1600712242805-5f996748fd99?q=80&w=600&h=600&fit=crop",
     badge: "En Stock",
   },
   {
@@ -416,7 +416,7 @@ export function ProductsCarousel() {
                 <Card key={product.id} className="group bg-secondary/20 border-secondary/30 card-glow h-full backdrop-blur-sm transition-all hover:bg-secondary/30">
                   <CardContent className="p-4">
                     <div className="relative aspect-square bg-secondary/40 rounded-lg mb-4 overflow-hidden">
-                      <Image src={product.image} alt={product.name} fill className="object-cover group-hover:scale-110 transition-transform duration-300" sizes="25vw" unoptimized={product.image.endsWith(".svg")} />
+                      <Image src={product.image} alt={product.name} fill className="object-cover" sizes="25vw" unoptimized={product.image.endsWith(".svg") || product.image.startsWith("data:")} />
                       {product.badge && (
                         <Badge className="absolute top-2 left-2 bg-accent text-accent-foreground text-[10px] font-bold uppercase tracking-wider z-10 shadow-lg glow-accent-btn">{product.badge}</Badge>
                       )}
@@ -451,7 +451,7 @@ export function ProductsCarousel() {
                     <Card className="group bg-secondary/20 border-secondary/30 card-glow h-full backdrop-blur-sm transition-all hover:bg-secondary/30">
                       <CardContent className="p-4">
                         <div className="relative aspect-square bg-secondary/40 rounded-lg mb-4 overflow-hidden">
-                          <Image src={product.image} alt={product.name} fill draggable={false} className="object-cover group-hover:scale-110 transition-transform duration-300 select-none" sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw" unoptimized={product.image.endsWith(".svg")} />
+                          <Image src={product.image} alt={product.name} fill draggable={false} className="object-cover select-none" sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw" unoptimized={product.image.endsWith(".svg") || product.image.startsWith("data:")} />
                           {product.badge && (
                             <Badge className="absolute top-2 left-2 bg-accent text-accent-foreground text-[10px] font-bold uppercase tracking-wider z-10 shadow-lg glow-accent-btn">{product.badge}</Badge>
                           )}

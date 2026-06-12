@@ -7,6 +7,7 @@ import { Header } from "@/components/header"
 import { HeroBanner } from "@/components/hero-banner"
 import { ProductsCarousel } from "@/components/products-carousel"
 import { ServicesSection } from "@/components/services-section"
+import { VideoDisplay } from "@/components/video-display"
 import { Footer } from "@/components/footer"
 import { Loader2 } from "lucide-react"
 
@@ -32,6 +33,7 @@ export default function DashboardPage() {
       <main>
         <HeroBanner />
         <ProductsCarousel />
+        <VideoDisplay />
         <ServicesSection />
       </main>
       <Footer />

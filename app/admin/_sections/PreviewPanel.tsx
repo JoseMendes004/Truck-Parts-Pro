@@ -49,16 +49,30 @@ export function PreviewPanel({ previewTheme, previewTypography }: PreviewPanelPr
               #preview-container-root .font-heading,
               #preview-container-root h1,
               #preview-container-root h2,
-              #preview-container-root h3 {
+              #preview-container-root h3,
+              #preview-container-root h4,
+              #preview-container-root h5,
+              #preview-container-root h6 {
                 font-family: '${previewTypography.headingFont}', sans-serif !important;
+              }
+              
+              #preview-container-root h1,
+              #preview-container-root h2,
+              #preview-container-root h3 {
                 font-size: calc(24px * ${previewTypography.headingSize}) !important;
                 line-height: 1.2;
               }
+
+              #preview-container-root h4 {
+                font-size: calc(14px * ${previewTypography.headingSize}) !important;
+                line-height: 1.2;
+              }
+
               #preview-container-root .subtitle,
               #preview-container-root p,
               #preview-container-root li,
               #preview-container-root button {
-                font-family: '${previewTypography.bodyFont}', sans-serif;
+                font-family: '${previewTypography.bodyFont}', sans-serif !important;
                 font-size: calc(14px * ${previewTypography.bodySize}) !important;
               }
             ` }} />

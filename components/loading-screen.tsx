@@ -7,8 +7,8 @@ import { useLoading } from '@/contexts/loading-context';
 const CONFIG = {
   WORLD_SIZE: 10,
   EXTRUDE_DEPTH: 1.0,
-  HOLD_MS: 800,
-  TRANS_MS: 1500,
+  HOLD_MS: 400,
+  TRANS_MS: 800,
 };
 
 const RAW_FIGURES = [
@@ -117,18 +117,8 @@ export const LoadingScreen = () => {
   }, [isLoading, isLoadingScreenEnabled]);
 
   useEffect(() => {
-    // We no longer use a fixed timeout here. 
     // The hideLoading() will be called from the animation loop.
-    
-    const handleBeforeUnload = () => {
-      if (isLoadingScreenEnabled) showLoading();
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [showLoading, isLoadingScreenEnabled]);
+  }, [hideLoading]);
 
   useEffect(() => {
     if (!shouldRender || !containerRef.current) return;
@@ -280,7 +270,7 @@ export const LoadingScreen = () => {
           extraRot = Math.sin(t * Math.PI) * 0.6;
         }
 
-        if (phaseIndex >= figures.length - 1 && phaseElapsed > CONFIG.HOLD_MS * 0.8 && isLoading) {
+        if (phaseIndex >= figures.length - 1 && phaseElapsed > CONFIG.HOLD_MS * 0.5 && isLoading) {
            hideLoading();
         }
 

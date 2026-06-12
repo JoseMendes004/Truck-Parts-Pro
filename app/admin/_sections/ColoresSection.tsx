@@ -21,6 +21,10 @@ import {
 } from "@/components/ui/command"
 import { cn } from "@/lib/utils"
 import { Plus, Trash2, Save, Palette, Check, Search, ChevronsUpDown } from "lucide-react"
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 interface PreviewTheme {
   name: string
@@ -367,24 +371,40 @@ export function ColoresSection({ onPreviewChange }: ColoresSectionProps) {
                   <Button size="sm" variant="outline" onClick={() => applyTheme(theme)} className="border-border text-foreground hover:bg-muted">
                     Aplicar
                   </Button>
-                  {!theme.id.startsWith("default-") && !Object.values(modeThemeAssignment).includes(theme.id as string) && (
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => {
-                        if (window.confirm("¿Estás seguro de que deseas eliminar este tema? Esta acción no se puede deshacer.")) {
-                          removeCustomTheme(theme.id)
-                        }
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                  {!theme.id.startsWith("default-") && Object.values(modeThemeAssignment).includes(theme.id as string) && (
-                    <Button size="sm" variant="secondary" disabled title="No se puede eliminar porque está asignado a un modo">
-                      <Trash2 className="h-4 w-4 opacity-50" />
-                    </Button>
-                  )}
+                  {(() => {
+                    const inUse = Object.values(modeThemeAssignment).includes(theme.id as string)
+                    return (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant={inUse ? "secondary" : "destructive"}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>
+                              {inUse ? "¿Eliminar paleta en uso?" : "¿Eliminar paleta?"}
+                            </AlertDialogTitle>
+                            <AlertDialogDescription>
+                              {inUse
+                                ? <>La paleta <strong>"{theme.name}"</strong> está asignada actualmente a uno o más modos del sitio. Si la eliminas, ese modo perderá su apariencia personalizada. ¿Estás seguro?</>
+                                : <>¿Estás seguro de que deseas eliminar la paleta <strong>"{theme.name}"</strong>? Esta acción no se puede deshacer.</>
+                              }
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                              onClick={() => removeCustomTheme(theme.id)}
+                            >
+                              Sí, eliminar
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )
+                  })()}
                 </div>
               </div>
             ))

@@ -8,8 +8,12 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Package, Image as ImageIcon, Save, Check, ShoppingCart, Star, Plus, X, Trash2, Pencil, Search } from "lucide-react"
+import { Package, Image as ImageIcon, Save, Check, ShoppingCart, Star, Plus, X, Trash2, Pencil, Search, ChevronLeft, ChevronRight } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { staticProducts } from "@/components/products-carousel"
 
 const DEFAULT_QUANTITIES = [1, 2, 4, 5, 10, 12, 15, 20, 24, 50]
@@ -26,6 +30,160 @@ function loadQuantitiesFromStorage() {
   } catch {
     return { quantities: DEFAULT_QUANTITIES, selected: DEFAULT_SELECTED }
   }
+}
+
+function ImageCropper({ src, naturalWidth, naturalHeight, onConfirm, onCancel }: {
+  src: string
+  naturalWidth: number
+  naturalHeight: number
+  onConfirm: (dataUrl: string) => void
+  onCancel: () => void
+}) {
+  const CROP_D = 380
+
+  const minZoom = CROP_D / Math.min(naturalWidth, naturalHeight)
+  const maxZoom = minZoom * 5
+
+  const [zoom, setZoom] = useState(minZoom)
+  const [offset, setOffset] = useState({ x: 0, y: 0 })
+
+  const imgW = naturalWidth * zoom
+  const imgH = naturalHeight * zoom
+  const maxOffX = Math.max(0, (imgW - CROP_D) / 2)
+  const maxOffY = Math.max(0, (imgH - CROP_D) / 2)
+  const imgLeft = CROP_D / 2 + offset.x - imgW / 2
+  const imgTop  = CROP_D / 2 + offset.y - imgH / 2
+
+  const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
+
+  const applyZoom = (newZoom: number) => {
+    const z = clamp(newZoom, minZoom, maxZoom)
+    const nW = naturalWidth * z
+    const nH = naturalHeight * z
+    const nMaxX = Math.max(0, (nW - CROP_D) / 2)
+    const nMaxY = Math.max(0, (nH - CROP_D) / 2)
+    setZoom(z)
+    setOffset(prev => ({ x: clamp(prev.x, -nMaxX, nMaxX), y: clamp(prev.y, -nMaxY, nMaxY) }))
+  }
+
+  const dragRef = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null)
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    dragRef.current = { sx: e.clientX, sy: e.clientY, ox: offset.x, oy: offset.y }
+    const onMove = (ev: MouseEvent) => {
+      if (!dragRef.current) return
+      setOffset({
+        x: clamp(dragRef.current.ox + ev.clientX - dragRef.current.sx, -maxOffX, maxOffX),
+        y: clamp(dragRef.current.oy + ev.clientY - dragRef.current.sy, -maxOffY, maxOffY),
+      })
+    }
+    const onUp = () => { dragRef.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+
+  // Non-passive wheel listener to enable preventDefault
+  const containerRef = useRef<HTMLDivElement>(null)
+  const stateRef = useRef({ zoom, minZoom, maxZoom, naturalWidth, naturalHeight })
+  stateRef.current = { zoom, minZoom, maxZoom, naturalWidth, naturalHeight }
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const handler = (e: WheelEvent) => {
+      e.preventDefault()
+      const { zoom, minZoom, maxZoom, naturalWidth, naturalHeight } = stateRef.current
+      const z = clamp(zoom * (e.deltaY > 0 ? 0.93 : 1.07), minZoom, maxZoom)
+      const nW = naturalWidth * z
+      const nH = naturalHeight * z
+      const nMaxX = Math.max(0, (nW - CROP_D) / 2)
+      const nMaxY = Math.max(0, (nH - CROP_D) / 2)
+      setZoom(z)
+      setOffset(prev => ({ x: clamp(prev.x, -nMaxX, nMaxX), y: clamp(prev.y, -nMaxY, nMaxY) }))
+    }
+    el.addEventListener('wheel', handler, { passive: false })
+    return () => el.removeEventListener('wheel', handler)
+  }, [])
+
+  const handleConfirm = () => {
+    const OUT = 600
+    const canvas = document.createElement('canvas')
+    canvas.width = OUT
+    canvas.height = OUT
+    const ctx = canvas.getContext('2d')!
+    const img = new Image()
+    img.onload = () => {
+      ctx.drawImage(img, -imgLeft / zoom, -imgTop / zoom, CROP_D / zoom, CROP_D / zoom, 0, 0, OUT, OUT)
+      onConfirm(canvas.toDataURL('image/jpeg', 0.88))
+    }
+    img.src = src
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+      <div className="bg-card border border-border rounded-2xl p-5 flex flex-col items-center gap-4 shadow-2xl max-w-[95vw]">
+        <div className="text-center">
+          <h3 className="text-foreground font-semibold text-base">Ajustar imagen</h3>
+          <p className="text-muted-foreground text-xs mt-1">Arrastra para encuadrar · Slider o rueda del mouse para zoom</p>
+        </div>
+
+        {/* Ventana de recorte fija 600×600 */}
+        <div
+          ref={containerRef}
+          className="relative overflow-hidden rounded-lg select-none cursor-grab active:cursor-grabbing"
+          style={{ width: CROP_D, height: CROP_D }}
+          onMouseDown={onMouseDown}
+        >
+          <img
+            src={src}
+            draggable={false}
+            alt=""
+            style={{ position: 'absolute', left: imgLeft, top: imgTop, width: imgW, height: imgH, maxWidth: 'none', display: 'block', pointerEvents: 'none' }}
+          />
+          {/* Marco fijo */}
+          <div className="absolute inset-0 pointer-events-none z-10">
+            <div className="absolute inset-0 border-2 border-dashed border-white/80" />
+            {/* Guías de tercios */}
+            <div className="absolute inset-0 opacity-25">
+              <div className="absolute h-full border-r border-white" style={{ left: '33.33%' }} />
+              <div className="absolute h-full border-r border-white" style={{ left: '66.66%' }} />
+              <div className="absolute w-full border-b border-white" style={{ top: '33.33%' }} />
+              <div className="absolute w-full border-b border-white" style={{ top: '66.66%' }} />
+            </div>
+            {/* Brackets de esquina */}
+            <div className="absolute top-0 left-0 w-6 h-6 border-t-[3px] border-l-[3px] border-white" />
+            <div className="absolute top-0 right-0 w-6 h-6 border-t-[3px] border-r-[3px] border-white" />
+            <div className="absolute bottom-0 left-0 w-6 h-6 border-b-[3px] border-l-[3px] border-white" />
+            <div className="absolute bottom-0 right-0 w-6 h-6 border-b-[3px] border-r-[3px] border-white" />
+          </div>
+        </div>
+
+        {/* Slider de zoom */}
+        <div className="flex items-center gap-3 w-full px-1">
+          <span className="text-muted-foreground text-sm font-bold select-none leading-none">−</span>
+          <input
+            type="range"
+            min={minZoom}
+            max={maxZoom}
+            step={0.0001}
+            value={zoom}
+            onChange={e => applyZoom(Number(e.target.value))}
+            className="flex-1 h-1 rounded-full appearance-none bg-border cursor-pointer"
+            style={{ accentColor: 'hsl(var(--accent))' }}
+          />
+          <span className="text-muted-foreground text-sm font-bold select-none leading-none">+</span>
+        </div>
+
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={onCancel} className="border-border text-foreground hover:bg-muted">Cancelar</Button>
+          <Button onClick={handleConfirm} className="bg-accent text-accent-foreground hover:opacity-90 glow-accent-btn">
+            <Check className="h-4 w-4 mr-1.5" /> Confirmar
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export function AdminInventory() {
@@ -131,7 +289,12 @@ export function AdminInventory() {
   
   const [saved, setSaved] = useState(false)
   const [productSearch, setProductSearch] = useState("")
+  const [productsPerPage, setProductsPerPage] = useState(4)
+  const [productPage, setProductPage] = useState(1)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [cropperData, setCropperData] = useState<{ src: string; w: number; h: number } | null>(null)
+
+  const resetFileInput = () => { if (fileInputRef.current) fileInputRef.current.value = "" }
 
   const handleInputChange = (field: string, value: string) => {
     setProductData(prev => ({ ...prev, [field]: value }))
@@ -140,14 +303,26 @@ export function AdminInventory() {
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        setProductData(prev => ({ ...prev, image: event.target?.result as string }))
-        setSaved(false)
-      }
-      reader.readAsDataURL(file)
-    }
+    if (!file) return
+
+    const objectUrl = URL.createObjectURL(file)
+    const img = new Image()
+    img.onerror = () => URL.revokeObjectURL(objectUrl)
+    img.onload = () => setCropperData({ src: objectUrl, w: img.naturalWidth || img.width, h: img.naturalHeight || img.height })
+    img.src = objectUrl
+  }
+
+  const handleCropConfirm = (dataUrl: string) => {
+    if (cropperData) URL.revokeObjectURL(cropperData.src)
+    setCropperData(null)
+    setProductData(prev => ({ ...prev, image: dataUrl }))
+    setSaved(false)
+  }
+
+  const handleCropCancel = () => {
+    if (cropperData) URL.revokeObjectURL(cropperData.src)
+    setCropperData(null)
+    resetFileInput()
   }
 
   const toggleQuantity = (qty: number) => {
@@ -256,6 +431,17 @@ export function AdminInventory() {
 
   return (
     <div className="flex flex-col gap-6" ref={editSectionRef}>
+
+      {cropperData && (
+        <ImageCropper
+          src={cropperData.src}
+          naturalWidth={cropperData.w}
+          naturalHeight={cropperData.h}
+          onConfirm={handleCropConfirm}
+          onCancel={handleCropCancel}
+        />
+      )}
+
     <div className="flex flex-col xl:flex-row gap-6">
       {/* Formulario Izquierda */}
       <Card className="bg-card border-border flex-1">
@@ -568,22 +754,37 @@ export function AdminInventory() {
                 {allProducts.length} producto{allProducts.length !== 1 ? "s" : ""} en total. Elimina los personalizados que ya no quieras mostrar.
               </CardDescription>
             </div>
-            <div className="relative w-full sm:w-56">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-              <Input
-                value={productSearch}
-                onChange={e => setProductSearch(e.target.value)}
-                placeholder="Buscar producto..."
-                className="pl-9 pr-8 h-9 text-sm bg-input border-border"
-              />
-              {productSearch && (
-                <button
-                  onClick={() => setProductSearch("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
+            <div className="flex gap-2 items-center w-full sm:w-auto">
+              <div className="relative flex-1 sm:w-56">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  value={productSearch}
+                  onChange={e => { setProductSearch(e.target.value); setProductPage(1) }}
+                  placeholder="Buscar producto..."
+                  className="pl-9 pr-8 h-9 text-sm bg-input border-border"
+                />
+                {productSearch && (
+                  <button
+                    onClick={() => { setProductSearch(""); setProductPage(1) }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              <Select
+                value={String(productsPerPage)}
+                onValueChange={(v) => { setProductsPerPage(Number(v)); setProductPage(1) }}
+              >
+                <SelectTrigger className="w-20 h-9 bg-input border-border text-foreground text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="4">4</SelectItem>
+                  <SelectItem value="8">8</SelectItem>
+                  <SelectItem value="12">12</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardHeader>
@@ -595,6 +796,10 @@ export function AdminInventory() {
                   p.category.toLowerCase().includes(productSearch.toLowerCase())
                 )
               : allProducts
+            const totalPages = Math.max(1, Math.ceil(filtered.length / productsPerPage))
+            const safePage = Math.min(productPage, totalPages)
+            const paginated = filtered.slice((safePage - 1) * productsPerPage, safePage * productsPerPage)
+
             if (filtered.length === 0) return (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
                 <Search className="h-8 w-8 opacity-20" />
@@ -602,8 +807,9 @@ export function AdminInventory() {
               </div>
             )
             return (
+              <>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filtered.map(product => (
+            {paginated.map(product => (
               <div key={product.id} className="relative group">
                 <Card className="bg-secondary/20 border-secondary/30 h-full">
                   <CardContent className="p-3">
@@ -649,20 +855,67 @@ export function AdminInventory() {
                       >
                         <Pencil className="h-3 w-3 mr-1" /> Editar
                       </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        className="flex-1 h-7 text-xs"
-                        onClick={() => handleDeleteProduct(product.id, !!(product as any)._static)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5 mr-1" /> Eliminar
-                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="sm" className="flex-1 h-7 text-xs">
+                            <Trash2 className="h-3.5 w-3.5 mr-1" /> Eliminar
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>¿Eliminar producto?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              ¿Estás seguro de que deseas eliminar <strong>"{product.name}"</strong> del inventario? Esta acción no se puede deshacer.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                              onClick={() => handleDeleteProduct(product.id, !!(product as any)._static)}
+                            >
+                              Sí, eliminar
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </CardContent>
                 </Card>
               </div>
             ))}
           </div>
+
+          {/* Paginación */}
+          {filtered.length > productsPerPage && (
+            <div className="flex items-center justify-between pt-4 mt-2 border-t border-border">
+              <p className="text-xs text-muted-foreground">
+                {(safePage - 1) * productsPerPage + 1}–{Math.min(safePage * productsPerPage, filtered.length)} de {filtered.length}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="h-7 w-7 border-border"
+                  disabled={safePage <= 1}
+                  onClick={() => setProductPage((p) => p - 1)}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-xs text-foreground px-2">{safePage} / {totalPages}</span>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="h-7 w-7 border-border"
+                  disabled={safePage >= totalPages}
+                  onClick={() => setProductPage((p) => p + 1)}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+              </>
             )
           })()}
         </CardContent>

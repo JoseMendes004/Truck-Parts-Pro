@@ -1,23 +1,44 @@
 "use client"
 
+import { useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, Shield, Clock, Award } from "lucide-react"
+import { ArrowRight, Shield, Clock, Award, Volume2, VolumeX } from "lucide-react"
 
 export function HeroBanner() {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [isMuted, setIsMuted] = useState(true)
+
+  const toggleMute = () => {
+    if (!videoRef.current) return
+    videoRef.current.muted = !videoRef.current.muted
+    setIsMuted(videoRef.current.muted)
+  }
+
   return (
     <section className="relative min-h-[100dvh] flex items-center justify-center overflow-hidden bg-background text-foreground">
       {/* Background Video & Overlay */}
       <div className="absolute inset-0 z-0 overflow-hidden">
-        <video 
-          autoPlay 
-          loop 
-          muted 
-          playsInline 
+        <video
+          ref={videoRef}
+          autoPlay
+          loop
+          muted
+          playsInline
           className="w-full h-full object-cover"
         >
           <source src="/camion.mp4" type="video/mp4" />
         </video>
       </div>
+
+      {/* Mute/Unmute button */}
+      <button
+        onClick={toggleMute}
+        className="absolute bottom-6 right-6 z-20 flex items-center gap-2 px-3 py-2 rounded-full bg-black/40 border border-white/20 backdrop-blur-sm text-white hover:bg-black/60 transition-all"
+        title={isMuted ? "Activar sonido" : "Silenciar"}
+      >
+        {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+        <span className="text-xs font-medium">{isMuted ? "Activar sonido" : "Silenciar"}</span>
+      </button>
       
       {/* Overlay darkening inspired by Login, using theme background color for consistency */}
       <div className="absolute inset-0 z-0 bg-background/20" />
