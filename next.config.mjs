@@ -14,9 +14,7 @@ const nextConfig = {
   },
   // Permitir el acceso desde la IP de la red para evitar bloqueos de hidratación
   allowedDevOrigins: ["10.2.0.2", "10.2.0.2:3000", "192.168.5.87", "localhost:3000", "192.168.5.87:3000", "192.168.5.150", "192.168.5.150:3000", "172.20.10.7", "172.20.10.7:3000"],
-  experimental: {
-    outputFileTracingRoot: __dirname,
-  },
+  outputFileTracingRoot: __dirname,
 }
 
 export default nextConfig
